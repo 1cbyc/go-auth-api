@@ -153,3 +153,37 @@ func (r *GORMPasswordResetTokenRepository) MarkUsed(token string) error {
 func (r *GORMPasswordResetTokenRepository) DeleteByUserID(userID string) error {
 	return r.db.Where("user_id = ?", userID).Delete(&models.PasswordResetToken{}).Error
 }
+
+// GORMEmailVerificationTokenRepository implements EmailVerificationTokenRepository using GORM
+// (for email verification flow)
+type GORMEmailVerificationTokenRepository struct {
+	db *gorm.DB
+}
+
+func NewGORMEmailVerificationTokenRepository(db *gorm.DB) EmailVerificationTokenRepository {
+	return &GORMEmailVerificationTokenRepository{db: db}
+}
+
+func (r *GORMEmailVerificationTokenRepository) Create(token *models.EmailVerificationToken) error {
+	return r.db.Create(token).Error
+}
+
+func (r *GORMEmailVerificationTokenRepository) GetByToken(token string) (*models.EmailVerificationToken, error) {
+	var evt models.EmailVerificationToken
+	err := r.db.Where("token = ?", token).First(&evt).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &evt, nil
+}
+
+func (r *GORMEmailVerificationTokenRepository) MarkUsed(token string) error {
+	return r.db.Model(&models.EmailVerificationToken{}).Where("token = ?", token).Update("used", true).Error
+}
+
+func (r *GORMEmailVerificationTokenRepository) DeleteByUserID(userID string) error {
+	return r.db.Where("user_id = ?", userID).Delete(&models.EmailVerificationToken{}).Error
+}

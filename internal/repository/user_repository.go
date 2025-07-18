@@ -37,6 +37,15 @@ type PasswordResetTokenRepository interface {
 	DeleteByUserID(userID string) error
 }
 
+// EmailVerificationTokenRepository defines the interface for email verification token operations
+// (for email verification flow)
+type EmailVerificationTokenRepository interface {
+	Create(token *models.EmailVerificationToken) error
+	GetByToken(token string) (*models.EmailVerificationToken, error)
+	MarkUsed(token string) error
+	DeleteByUserID(userID string) error
+}
+
 // InMemoryUserRepository implements UserRepository with in-memory storage
 type InMemoryUserRepository struct {
 	users map[string]*models.User

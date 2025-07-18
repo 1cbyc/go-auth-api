@@ -61,7 +61,8 @@ func (d *Database) AutoMigrate() error {
 	err := d.DB.AutoMigrate(
 		&models.User{},
 		&models.RefreshToken{},
-		&models.PasswordResetToken{}, // added for password reset
+		&models.PasswordResetToken{},
+		&models.EmailVerificationToken{}, // added for email verification
 	)
 
 	if err != nil {

@@ -14,19 +14,21 @@ import (
 
 // AuthService handles authentication-related business logic
 type AuthService struct {
-	userRepo               repository.UserRepository
-	refreshTokenRepo       repository.RefreshTokenRepository       // added for refresh token DB
-	passwordResetTokenRepo repository.PasswordResetTokenRepository // added for password reset
-	config                 *config.Config
+	userRepo                   repository.UserRepository
+	refreshTokenRepo           repository.RefreshTokenRepository
+	passwordResetTokenRepo     repository.PasswordResetTokenRepository
+	emailVerificationTokenRepo repository.EmailVerificationTokenRepository // added for email verification
+	config                     *config.Config
 }
 
 // NewAuthService creates a new authentication service
-func NewAuthService(userRepo repository.UserRepository, refreshTokenRepo repository.RefreshTokenRepository, passwordResetTokenRepo repository.PasswordResetTokenRepository, cfg *config.Config) *AuthService {
+func NewAuthService(userRepo repository.UserRepository, refreshTokenRepo repository.RefreshTokenRepository, passwordResetTokenRepo repository.PasswordResetTokenRepository, emailVerificationTokenRepo repository.EmailVerificationTokenRepository, cfg *config.Config) *AuthService {
 	return &AuthService{
-		userRepo:               userRepo,
-		refreshTokenRepo:       refreshTokenRepo,       // added
-		passwordResetTokenRepo: passwordResetTokenRepo, // added
-		config:                 cfg,
+		userRepo:                   userRepo,
+		refreshTokenRepo:           refreshTokenRepo,
+		passwordResetTokenRepo:     passwordResetTokenRepo,
+		emailVerificationTokenRepo: emailVerificationTokenRepo, // added
+		config:                     cfg,
 	}
 }
 
@@ -215,14 +217,13 @@ func (s *AuthService) Logout(userID string) error {
 
 // RequestPasswordReset delegates to UserService for password reset request
 func (s *AuthService) RequestPasswordReset(email string) error {
-	// Use userRepo and passwordResetTokenRepo directly
-	userService := NewUserService(s.userRepo, s.refreshTokenRepo, s.passwordResetTokenRepo)
+	userService := NewUserService(s.userRepo, s.refreshTokenRepo, s.passwordResetTokenRepo, s.emailVerificationTokenRepo)
 	return userService.RequestPasswordReset(email)
 }
 
 // ConfirmPasswordReset delegates to UserService for password reset confirmation
 func (s *AuthService) ConfirmPasswordReset(token, newPassword string) error {
-	userService := NewUserService(s.userRepo, s.refreshTokenRepo, s.passwordResetTokenRepo)
+	userService := NewUserService(s.userRepo, s.refreshTokenRepo, s.passwordResetTokenRepo, s.emailVerificationTokenRepo)
 	return userService.ConfirmPasswordReset(token, newPassword)
 }
 

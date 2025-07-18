@@ -13,17 +13,19 @@ import (
 
 // UserService handles user-related business logic
 type UserService struct {
-	userRepo               repository.UserRepository
-	refreshTokenRepo       repository.RefreshTokenRepository
-	passwordResetTokenRepo repository.PasswordResetTokenRepository // added for password reset
+	userRepo                   repository.UserRepository
+	refreshTokenRepo           repository.RefreshTokenRepository
+	passwordResetTokenRepo     repository.PasswordResetTokenRepository
+	emailVerificationTokenRepo repository.EmailVerificationTokenRepository // added for email verification
 }
 
 // NewUserService creates a new user service
-func NewUserService(userRepo repository.UserRepository, refreshTokenRepo repository.RefreshTokenRepository, passwordResetTokenRepo repository.PasswordResetTokenRepository) *UserService {
+func NewUserService(userRepo repository.UserRepository, refreshTokenRepo repository.RefreshTokenRepository, passwordResetTokenRepo repository.PasswordResetTokenRepository, emailVerificationTokenRepo repository.EmailVerificationTokenRepository) *UserService {
 	return &UserService{
-		userRepo:               userRepo,
-		refreshTokenRepo:       refreshTokenRepo,
-		passwordResetTokenRepo: passwordResetTokenRepo, // added
+		userRepo:                   userRepo,
+		refreshTokenRepo:           refreshTokenRepo,
+		passwordResetTokenRepo:     passwordResetTokenRepo,
+		emailVerificationTokenRepo: emailVerificationTokenRepo, // added
 	}
 }
 

@@ -10,17 +10,18 @@ import (
 
 // User represents a user in the system
 type User struct {
-	ID        string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	Username  string         `json:"username" gorm:"uniqueIndex;not null"`
-	Email     string         `json:"email" gorm:"uniqueIndex;not null"`
-	Password  string         `json:"-" gorm:"not null"` // "-" means this field won't be included in JSON
-	FirstName string         `json:"first_name" gorm:"not null"`
-	LastName  string         `json:"last_name" gorm:"not null"`
-	Role      string         `json:"role" gorm:"not null;default:'user'"`
-	IsActive  bool           `json:"is_active" gorm:"not null;default:true"`
-	CreatedAt time.Time      `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
-	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
+	ID              string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	Username        string         `json:"username" gorm:"uniqueIndex;not null"`
+	Email           string         `json:"email" gorm:"uniqueIndex;not null"`
+	Password        string         `json:"-" gorm:"not null"` // "-" means this field won't be included in JSON
+	FirstName       string         `json:"first_name" gorm:"not null"`
+	LastName        string         `json:"last_name" gorm:"not null"`
+	Role            string         `json:"role" gorm:"not null;default:'user'"`
+	IsActive        bool           `json:"is_active" gorm:"not null;default:true"`
+	IsEmailVerified bool           `json:"is_email_verified" gorm:"not null;default:false"` // added
+	CreatedAt       time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt       time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt       gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 // RefreshToken represents a refresh token in the system
@@ -43,6 +44,24 @@ type PasswordResetToken struct {
 	Used      bool      `json:"used" gorm:"not null;default:false"`
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 	User      User      `json:"-" gorm:"foreignKey:UserID"`
+}
+
+// EmailVerificationToken represents an email verification token
+// (for email verification flow)
+type EmailVerificationToken struct {
+	ID        string    `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	UserID    string    `json:"user_id" gorm:"not null;type:uuid"`
+	Token     string    `json:"token" gorm:"uniqueIndex;not null"`
+	ExpiresAt time.Time `json:"expires_at" gorm:"not null"`
+	Used      bool      `json:"used" gorm:"not null;default:false"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	User      User      `json:"-" gorm:"foreignKey:UserID"`
+}
+
+// EmailVerificationRequest represents the request to verify email
+// (user submits token)
+type EmailVerificationRequest struct {
+	Token string `json:"token" validate:"required"`
 }
 
 // CreateUserRequest represents the request to create a new user
@@ -119,14 +138,15 @@ func NewUser(req CreateUserRequest) (*User, error) {
 	}
 
 	user := &User{
-		ID:        uuid.New().String(),
-		Username:  req.Username,
-		Email:     req.Email,
-		Password:  string(hashedPassword),
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
-		Role:      role,
-		IsActive:  true,
+		ID:              uuid.New().String(),
+		Username:        req.Username,
+		Email:           req.Email,
+		Password:        string(hashedPassword),
+		FirstName:       req.FirstName,
+		LastName:        req.LastName,
+		Role:            role,
+		IsActive:        true,
+		IsEmailVerified: false, // Default to false
 	}
 
 	return user, nil
