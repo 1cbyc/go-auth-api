@@ -165,6 +165,75 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out"})
 }
 
+// RequestPasswordReset handles password reset requests
+// @Summary Request password reset
+// @Description Request a password reset link (simulated email)
+// @Tags authentication
+// @Accept json
+// @Produce json
+// @Param request body models.PasswordResetRequest true "Password reset request"
+// @Success 200 {object} map[string]string "Password reset email sent"
+// @Failure 400 {string} string "Invalid request data"
+// @Failure 404 {string} string "User not found"
+// @Router /auth/request-password-reset [post]
+func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
+	var req models.PasswordResetRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.WithError(err).Error("Failed to decode password reset request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+	if req.Email == "" {
+		h.logger.Error("Empty email in password reset request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email is required"})
+		return
+	}
+	if err := h.authService.RequestPasswordReset(req.Email); err != nil {
+		if err.Error() == "user not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+		h.logger.WithError(err).Error("Failed to request password reset")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to request password reset"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Password reset email sent (simulated)"})
+}
+
+// ConfirmPasswordReset handles password reset confirmation
+// @Summary Confirm password reset
+// @Description Reset password using token
+// @Tags authentication
+// @Accept json
+// @Produce json
+// @Param request body models.PasswordResetConfirmRequest true "Password reset confirm request"
+// @Success 200 {object} map[string]string "Password reset successful"
+// @Failure 400 {string} string "Invalid request data or token"
+// @Router /auth/confirm-password-reset [post]
+func (h *AuthHandler) ConfirmPasswordReset(c *gin.Context) {
+	var req models.PasswordResetConfirmRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.WithError(err).Error("Failed to decode password reset confirm request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+	if req.Token == "" || req.NewPassword == "" {
+		h.logger.Error("Empty token or new password in password reset confirm request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token and new password are required"})
+		return
+	}
+	if len(req.NewPassword) < 8 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "New password must be at least 8 characters long"})
+		return
+	}
+	if err := h.authService.ConfirmPasswordReset(req.Token, req.NewPassword); err != nil {
+		h.logger.WithError(err).Error("Failed to confirm password reset")
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Password reset successful"})
+}
+
 // Helper functions for validation
 func validateCreateUserRequest(req models.CreateUserRequest) error {
 	if req.Username == "" {

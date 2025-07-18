@@ -186,6 +186,8 @@ The application comes with pre-seeded users:
 - `POST /api/v1/auth/login` - User login
 - `POST /api/v1/auth/refresh` - Refresh access token
 - `POST /api/v1/auth/logout` - User logout
+- `POST /api/v1/auth/request-password-reset` - Request password reset (simulated email)
+- `POST /api/v1/auth/confirm-password-reset` - Confirm password reset
 - `GET /health` - Health check
 
 #### Protected Endpoints (Require Authentication)

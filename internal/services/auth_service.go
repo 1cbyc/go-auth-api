@@ -14,17 +14,19 @@ import (
 
 // AuthService handles authentication-related business logic
 type AuthService struct {
-	userRepo         repository.UserRepository
-	refreshTokenRepo repository.RefreshTokenRepository // added for refresh token DB
-	config           *config.Config
+	userRepo               repository.UserRepository
+	refreshTokenRepo       repository.RefreshTokenRepository       // added for refresh token DB
+	passwordResetTokenRepo repository.PasswordResetTokenRepository // added for password reset
+	config                 *config.Config
 }
 
 // NewAuthService creates a new authentication service
-func NewAuthService(userRepo repository.UserRepository, refreshTokenRepo repository.RefreshTokenRepository, cfg *config.Config) *AuthService {
+func NewAuthService(userRepo repository.UserRepository, refreshTokenRepo repository.RefreshTokenRepository, passwordResetTokenRepo repository.PasswordResetTokenRepository, cfg *config.Config) *AuthService {
 	return &AuthService{
-		userRepo:         userRepo,
-		refreshTokenRepo: refreshTokenRepo, // added
-		config:           cfg,
+		userRepo:               userRepo,
+		refreshTokenRepo:       refreshTokenRepo,       // added
+		passwordResetTokenRepo: passwordResetTokenRepo, // added
+		config:                 cfg,
 	}
 }
 
@@ -209,6 +211,19 @@ func (s *AuthService) ValidateToken(tokenString string) (*models.User, error) {
 // Logout invalidates all refresh tokens for the user
 func (s *AuthService) Logout(userID string) error {
 	return s.refreshTokenRepo.DeleteByUserID(userID)
+}
+
+// RequestPasswordReset delegates to UserService for password reset request
+func (s *AuthService) RequestPasswordReset(email string) error {
+	// Use userRepo and passwordResetTokenRepo directly
+	userService := NewUserService(s.userRepo, s.refreshTokenRepo, s.passwordResetTokenRepo)
+	return userService.RequestPasswordReset(email)
+}
+
+// ConfirmPasswordReset delegates to UserService for password reset confirmation
+func (s *AuthService) ConfirmPasswordReset(token, newPassword string) error {
+	userService := NewUserService(s.userRepo, s.refreshTokenRepo, s.passwordResetTokenRepo)
+	return userService.ConfirmPasswordReset(token, newPassword)
 }
 
 // generateTokens generates access and refresh tokens for a user

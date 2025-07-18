@@ -21,8 +21,8 @@ This document outlines the planned features, improvements, and tasks for the Go 
 ## 🚀 Phase 1: Core Features & Stability
 
 ### Authentication & Authorization
-- [x] **JWT Token Refresh** - Implement refresh token mechanism *(JWT auth implemented; refresh token mechanism pending)*
-- [ ] **Password Reset** - Email-based password reset functionality
+- [x] **JWT Token Refresh** - Implement refresh token mechanism *(Completed: DB persistence, endpoint, invalidation on logout/password change)*
+- [ ] **Password Reset** - Email-based password reset functionality *(In progress: endpoints, DB, simulated email)*
 - [ ] **Email Verification** - Verify user email addresses
 - [ ] **Two-Factor Authentication (2FA)** - TOTP-based 2FA
 - [ ] **OAuth Integration** - Google, GitHub, Microsoft login

@@ -87,8 +87,8 @@ func main() {
 	passwordResetTokenRepo := repository.NewGORMPasswordResetTokenRepository(db.DB) // added
 
 	// Initialize services
-	authService := services.NewAuthService(userRepo, refreshTokenRepo, cfg)
-	userService := services.NewUserService(userRepo, refreshTokenRepo, passwordResetTokenRepo) // updated
+	authService := services.NewAuthService(userRepo, refreshTokenRepo, passwordResetTokenRepo, cfg) // updated
+	userService := services.NewUserService(userRepo, refreshTokenRepo, passwordResetTokenRepo)      // updated
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authService, logger)
@@ -183,6 +183,8 @@ func setupRouter(authHandler *handlers.AuthHandler, userHandler *handlers.UserHa
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/refresh", authHandler.RefreshToken)
 			auth.POST("/logout", authHandler.Logout)
+			auth.POST("/request-password-reset", authHandler.RequestPasswordReset) // added
+			auth.POST("/confirm-password-reset", authHandler.ConfirmPasswordReset) // added
 		}
 
 		// Protected routes
