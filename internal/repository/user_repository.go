@@ -28,6 +28,15 @@ type RefreshTokenRepository interface {
 	DeleteByUserID(userID string) error
 }
 
+// PasswordResetTokenRepository defines the interface for password reset token operations
+// (for password reset flow)
+type PasswordResetTokenRepository interface {
+	Create(token *models.PasswordResetToken) error
+	GetByToken(token string) (*models.PasswordResetToken, error)
+	MarkUsed(token string) error
+	DeleteByUserID(userID string) error
+}
+
 // InMemoryUserRepository implements UserRepository with in-memory storage
 type InMemoryUserRepository struct {
 	users map[string]*models.User

@@ -20,7 +20,7 @@ type Database struct {
 // NewDatabase creates a new database connection
 func NewDatabase(cfg *config.Config) (*Database, error) {
 	dsn := cfg.Database.GetDSN()
-	
+
 	// Configure GORM logger
 	gormLogger := logger.Default.LogMode(logger.Info)
 	if cfg.Log.Level == "error" {
@@ -57,12 +57,13 @@ func NewDatabase(cfg *config.Config) (*Database, error) {
 // AutoMigrate runs database migrations
 func (d *Database) AutoMigrate() error {
 	log.Println("Running database migrations...")
-	
+
 	err := d.DB.AutoMigrate(
 		&models.User{},
 		&models.RefreshToken{},
+		&models.PasswordResetToken{}, // added for password reset
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
@@ -133,4 +134,4 @@ func (d *Database) SeedData() error {
 
 	log.Println("Database seeded successfully")
 	return nil
-} 
+}

@@ -1,8 +1,11 @@
 package services
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"time"
 
 	"go-auth-api/internal/models"
 	"go-auth-api/internal/repository"
@@ -10,15 +13,17 @@ import (
 
 // UserService handles user-related business logic
 type UserService struct {
-	userRepo         repository.UserRepository
-	refreshTokenRepo repository.RefreshTokenRepository // added for refresh token invalidation
+	userRepo               repository.UserRepository
+	refreshTokenRepo       repository.RefreshTokenRepository
+	passwordResetTokenRepo repository.PasswordResetTokenRepository // added for password reset
 }
 
 // NewUserService creates a new user service
-func NewUserService(userRepo repository.UserRepository, refreshTokenRepo repository.RefreshTokenRepository) *UserService {
+func NewUserService(userRepo repository.UserRepository, refreshTokenRepo repository.RefreshTokenRepository, passwordResetTokenRepo repository.PasswordResetTokenRepository) *UserService {
 	return &UserService{
-		userRepo:         userRepo,
-		refreshTokenRepo: refreshTokenRepo, // added
+		userRepo:               userRepo,
+		refreshTokenRepo:       refreshTokenRepo,
+		passwordResetTokenRepo: passwordResetTokenRepo, // added
 	}
 }
 
@@ -148,5 +153,67 @@ func (s *UserService) DeleteUser(userID string) error {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 
+	return nil
+}
+
+// RequestPasswordReset generates a password reset token and simulates sending email
+func (s *UserService) RequestPasswordReset(email string) error {
+	user, err := s.userRepo.GetByEmail(email)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	// Generate secure random token
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return errors.New("failed to generate token")
+	}
+	token := base64.URLEncoding.EncodeToString(tokenBytes)
+
+	// Create password reset token
+	prt := &models.PasswordResetToken{
+		UserID:    user.ID,
+		Token:     token,
+		ExpiresAt: time.Now().Add(15 * time.Minute),
+	}
+	if err := s.passwordResetTokenRepo.Create(prt); err != nil {
+		return errors.New("failed to store password reset token")
+	}
+
+	// Simulate sending email (log to console)
+	// In production, send email with the token link
+	resetLink := "https://your-app/reset-password?token=" + token
+	println("[Simulated email] Password reset link for", email, ":", resetLink)
+	return nil
+}
+
+// ConfirmPasswordReset validates the token and updates the user's password
+func (s *UserService) ConfirmPasswordReset(token, newPassword string) error {
+	prt, err := s.passwordResetTokenRepo.GetByToken(token)
+	if err != nil || prt == nil {
+		return errors.New("invalid or expired token")
+	}
+	if prt.Used {
+		return errors.New("token already used")
+	}
+	if time.Now().After(prt.ExpiresAt) {
+		return errors.New("token expired")
+	}
+
+	user, err := s.userRepo.GetByID(prt.UserID)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	if err := user.UpdatePassword(newPassword); err != nil {
+		return errors.New("failed to update password")
+	}
+	if err := s.userRepo.Update(user); err != nil {
+		return errors.New("failed to save user")
+	}
+	if err := s.refreshTokenRepo.DeleteByUserID(user.ID); err != nil {
+		return errors.New("failed to invalidate refresh tokens")
+	}
+	if err := s.passwordResetTokenRepo.MarkUsed(token); err != nil {
+		return errors.New("failed to mark token used")
+	}
 	return nil
 }

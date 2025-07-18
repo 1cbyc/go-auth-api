@@ -33,6 +33,18 @@ type RefreshToken struct {
 	User      User      `json:"-" gorm:"foreignKey:UserID"`
 }
 
+// PasswordResetToken represents a password reset token in the system
+// (for password reset flow)
+type PasswordResetToken struct {
+	ID        string    `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	UserID    string    `json:"user_id" gorm:"not null;type:uuid"`
+	Token     string    `json:"token" gorm:"uniqueIndex;not null"`
+	ExpiresAt time.Time `json:"expires_at" gorm:"not null"`
+	Used      bool      `json:"used" gorm:"not null;default:false"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	User      User      `json:"-" gorm:"foreignKey:UserID"`
+}
+
 // CreateUserRequest represents the request to create a new user
 type CreateUserRequest struct {
 	Username  string `json:"username" validate:"required,min=3,max=50,alphanum"`
@@ -77,6 +89,19 @@ type AuthResponse struct {
 // RefreshTokenRequest represents the refresh token request
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token" validate:"required"`
+}
+
+// PasswordResetRequest represents the request to initiate a password reset
+// (user submits email)
+type PasswordResetRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+// PasswordResetConfirmRequest represents the request to confirm a password reset
+// (user submits token + new password)
+type PasswordResetConfirmRequest struct {
+	Token       string `json:"token" validate:"required"`
+	NewPassword string `json:"new_password" validate:"required,min=8"`
 }
 
 // NewUser creates a new user with default values

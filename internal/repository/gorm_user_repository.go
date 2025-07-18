@@ -119,3 +119,37 @@ func (r *GORMRefreshTokenRepository) DeleteByToken(token string) error {
 func (r *GORMRefreshTokenRepository) DeleteByUserID(userID string) error {
 	return r.db.Where("user_id = ?", userID).Delete(&models.RefreshToken{}).Error
 }
+
+// GORMPasswordResetTokenRepository implements PasswordResetTokenRepository using GORM
+// (for password reset flow)
+type GORMPasswordResetTokenRepository struct {
+	db *gorm.DB
+}
+
+func NewGORMPasswordResetTokenRepository(db *gorm.DB) PasswordResetTokenRepository {
+	return &GORMPasswordResetTokenRepository{db: db}
+}
+
+func (r *GORMPasswordResetTokenRepository) Create(token *models.PasswordResetToken) error {
+	return r.db.Create(token).Error
+}
+
+func (r *GORMPasswordResetTokenRepository) GetByToken(token string) (*models.PasswordResetToken, error) {
+	var prt models.PasswordResetToken
+	err := r.db.Where("token = ?", token).First(&prt).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &prt, nil
+}
+
+func (r *GORMPasswordResetTokenRepository) MarkUsed(token string) error {
+	return r.db.Model(&models.PasswordResetToken{}).Where("token = ?", token).Update("used", true).Error
+}
+
+func (r *GORMPasswordResetTokenRepository) DeleteByUserID(userID string) error {
+	return r.db.Where("user_id = ?", userID).Delete(&models.PasswordResetToken{}).Error
+}
