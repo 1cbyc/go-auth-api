@@ -85,3 +85,37 @@ func (r *GORMUserRepository) Count() (int64, error) {
 	err := r.db.Model(&models.User{}).Count(&count).Error
 	return count, err
 }
+
+// GORMRefreshTokenRepository implements RefreshTokenRepository using GORM
+// (added for JWT refresh token persistence)
+type GORMRefreshTokenRepository struct {
+	db *gorm.DB
+}
+
+func NewGORMRefreshTokenRepository(db *gorm.DB) RefreshTokenRepository {
+	return &GORMRefreshTokenRepository{db: db}
+}
+
+func (r *GORMRefreshTokenRepository) Create(token *models.RefreshToken) error {
+	return r.db.Create(token).Error
+}
+
+func (r *GORMRefreshTokenRepository) GetByToken(token string) (*models.RefreshToken, error) {
+	var rt models.RefreshToken
+	err := r.db.Where("token = ?", token).First(&rt).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &rt, nil
+}
+
+func (r *GORMRefreshTokenRepository) DeleteByToken(token string) error {
+	return r.db.Where("token = ?", token).Delete(&models.RefreshToken{}).Error
+}
+
+func (r *GORMRefreshTokenRepository) DeleteByUserID(userID string) error {
+	return r.db.Where("user_id = ?", userID).Delete(&models.RefreshToken{}).Error
+}

@@ -14,15 +14,17 @@ import (
 
 // AuthService handles authentication-related business logic
 type AuthService struct {
-	userRepo repository.UserRepository
-	config   *config.Config
+	userRepo         repository.UserRepository
+	refreshTokenRepo repository.RefreshTokenRepository // added for refresh token DB
+	config           *config.Config
 }
 
 // NewAuthService creates a new authentication service
-func NewAuthService(userRepo repository.UserRepository, cfg *config.Config) *AuthService {
+func NewAuthService(userRepo repository.UserRepository, refreshTokenRepo repository.RefreshTokenRepository, cfg *config.Config) *AuthService {
 	return &AuthService{
-		userRepo: userRepo,
-		config:   cfg,
+		userRepo:         userRepo,
+		refreshTokenRepo: refreshTokenRepo, // added
+		config:           cfg,
 	}
 }
 
@@ -52,6 +54,16 @@ func (s *AuthService) Register(req models.CreateUserRequest) (*models.AuthRespon
 	accessToken, refreshToken, err := s.generateTokens(user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
+	}
+
+	// Store refresh token in DB
+	rt := &models.RefreshToken{
+		UserID:    user.ID,
+		Token:     refreshToken,
+		ExpiresAt: time.Now().Add(s.config.JWT.RefreshTokenTTL),
+	}
+	if err := s.refreshTokenRepo.Create(rt); err != nil {
+		return nil, fmt.Errorf("failed to store refresh token: %w", err)
 	}
 
 	// Sanitize user data before returning
@@ -90,6 +102,16 @@ func (s *AuthService) Login(req models.LoginRequest) (*models.AuthResponse, erro
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
+	// Store refresh token in DB
+	rt := &models.RefreshToken{
+		UserID:    user.ID,
+		Token:     refreshToken,
+		ExpiresAt: time.Now().Add(s.config.JWT.RefreshTokenTTL),
+	}
+	if err := s.refreshTokenRepo.Create(rt); err != nil {
+		return nil, fmt.Errorf("failed to store refresh token: %w", err)
+	}
+
 	// Sanitize user data before returning
 	user.Sanitize()
 
@@ -104,15 +126,20 @@ func (s *AuthService) Login(req models.LoginRequest) (*models.AuthResponse, erro
 
 // RefreshToken generates new access token using refresh token
 func (s *AuthService) RefreshToken(refreshToken string) (*models.AuthResponse, error) {
+	// Check refresh token in DB
+	dbToken, err := s.refreshTokenRepo.GetByToken(refreshToken)
+	if err != nil || dbToken == nil {
+		return nil, errors.New("invalid refresh token")
+	}
+	if time.Now().After(dbToken.ExpiresAt) {
+		_ = s.refreshTokenRepo.DeleteByToken(refreshToken) // cleanup
+		return nil, errors.New("refresh token expired")
+	}
+
 	// Parse and validate refresh token
 	claims, err := s.parseToken(refreshToken)
 	if err != nil {
 		return nil, errors.New("invalid refresh token")
-	}
-
-	// Check if token is expired
-	if time.Now().Unix() > claims.ExpiresAt.Unix() {
-		return nil, errors.New("refresh token expired")
 	}
 
 	// Get user from repository
@@ -120,8 +147,6 @@ func (s *AuthService) RefreshToken(refreshToken string) (*models.AuthResponse, e
 	if err != nil {
 		return nil, errors.New("user not found")
 	}
-
-	// Check if user is active
 	if !user.IsActive {
 		return nil, errors.New("account is deactivated")
 	}
@@ -131,6 +156,17 @@ func (s *AuthService) RefreshToken(refreshToken string) (*models.AuthResponse, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
+
+	// Store new refresh token in DB, delete old one
+	newRT := &models.RefreshToken{
+		UserID:    user.ID,
+		Token:     newRefreshToken,
+		ExpiresAt: time.Now().Add(s.config.JWT.RefreshTokenTTL),
+	}
+	if err := s.refreshTokenRepo.Create(newRT); err != nil {
+		return nil, fmt.Errorf("failed to store new refresh token: %w", err)
+	}
+	_ = s.refreshTokenRepo.DeleteByToken(refreshToken)
 
 	// Sanitize user data before returning
 	user.Sanitize()
@@ -168,6 +204,11 @@ func (s *AuthService) ValidateToken(tokenString string) (*models.User, error) {
 	}
 
 	return user, nil
+}
+
+// Logout invalidates all refresh tokens for the user
+func (s *AuthService) Logout(userID string) error {
+	return s.refreshTokenRepo.DeleteByUserID(userID)
 }
 
 // generateTokens generates access and refresh tokens for a user

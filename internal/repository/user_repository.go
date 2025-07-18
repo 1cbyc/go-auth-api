@@ -19,6 +19,15 @@ type UserRepository interface {
 	Count() (int64, error)
 }
 
+// RefreshTokenRepository defines the interface for refresh token operations
+// (added for JWT refresh token persistence)
+type RefreshTokenRepository interface {
+	Create(token *models.RefreshToken) error
+	GetByToken(token string) (*models.RefreshToken, error)
+	DeleteByToken(token string) error
+	DeleteByUserID(userID string) error
+}
+
 // InMemoryUserRepository implements UserRepository with in-memory storage
 type InMemoryUserRepository struct {
 	users map[string]*models.User

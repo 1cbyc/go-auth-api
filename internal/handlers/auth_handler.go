@@ -152,12 +152,17 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 // @Success 200 {object} map[string]string "Logout successful"
 // @Router /auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
-	// In a real application, you might want to blacklist the refresh token
-	// For now, we'll just return a success response
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Successfully logged out",
-	})
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found in context"})
+		return
+	}
+	if err := h.authService.Logout(userID.(string)); err != nil {
+		h.logger.WithError(err).Error("Failed to logout user")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to logout"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out"})
 }
 
 // Helper functions for validation

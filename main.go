@@ -83,10 +83,11 @@ func main() {
 
 	// Initialize repositories
 	userRepo := repository.NewGORMUserRepository(db.DB)
+	refreshTokenRepo := repository.NewGORMRefreshTokenRepository(db.DB)
 
 	// Initialize services
-	authService := services.NewAuthService(userRepo, cfg)
-	userService := services.NewUserService(userRepo)
+	authService := services.NewAuthService(userRepo, refreshTokenRepo, cfg)
+	userService := services.NewUserService(userRepo, refreshTokenRepo)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authService, logger)

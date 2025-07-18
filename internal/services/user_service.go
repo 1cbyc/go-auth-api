@@ -10,13 +10,15 @@ import (
 
 // UserService handles user-related business logic
 type UserService struct {
-	userRepo repository.UserRepository
+	userRepo         repository.UserRepository
+	refreshTokenRepo repository.RefreshTokenRepository // added for refresh token invalidation
 }
 
 // NewUserService creates a new user service
-func NewUserService(userRepo repository.UserRepository) *UserService {
+func NewUserService(userRepo repository.UserRepository, refreshTokenRepo repository.RefreshTokenRepository) *UserService {
 	return &UserService{
-		userRepo: userRepo,
+		userRepo:         userRepo,
+		refreshTokenRepo: refreshTokenRepo, // added
 	}
 }
 
@@ -72,6 +74,11 @@ func (s *UserService) ChangePassword(userID string, req models.ChangePasswordReq
 	// Save updated user
 	if err := s.userRepo.Update(user); err != nil {
 		return fmt.Errorf("failed to save user: %w", err)
+	}
+
+	// Invalidate all refresh tokens for this user
+	if err := s.refreshTokenRepo.DeleteByUserID(userID); err != nil {
+		return fmt.Errorf("failed to invalidate refresh tokens: %w", err)
 	}
 
 	return nil
