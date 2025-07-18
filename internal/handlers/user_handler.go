@@ -525,6 +525,30 @@ func (h *UserHandler) UpdatePreferences(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Preferences updated"})
 }
 
+// DeleteAccount handles account deletion
+// @Summary Delete account
+// @Description Delete the current user's account (soft delete)
+// @Tags users
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} map[string]string "Account deleted"
+// @Failure 401 {string} string "Unauthorized"
+// @Router /users/delete [post]
+func (h *UserHandler) DeleteAccount(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.logger.Error("User ID not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	if err := h.userService.DeleteUser(userID.(string)); err != nil {
+		h.logger.WithError(err).Error("Failed to delete account")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Account deleted"})
+}
+
 // Helper functions for validation
 func validateChangePasswordRequest(req models.ChangePasswordRequest) error {
 	if req.CurrentPassword == "" {

@@ -145,18 +145,16 @@ func (s *UserService) UpdateUser(userID string, req models.UpdateUserRequest) (*
 	return user, nil
 }
 
-// DeleteUser deletes a user by ID (admin only)
+// DeleteUser deletes a user by ID (soft delete by default)
 func (s *UserService) DeleteUser(userID string) error {
 	// Check if user exists
 	if _, err := s.userRepo.GetByID(userID); err != nil {
 		return fmt.Errorf("user not found: %w", err)
 	}
-
-	// Delete user
+	// Soft delete (GORM)
 	if err := s.userRepo.Delete(userID); err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
-
 	return nil
 }
 
@@ -362,4 +360,28 @@ func (s *UserService) UpdatePreferences(userID, prefs string) error {
 	}
 	user.Preferences = prefs
 	return s.userRepo.Update(user)
+}
+
+// LogUserActivity logs a user action
+func (s *UserService) LogUserActivity(userID, action, details string) error {
+	log := &models.UserActivityLog{
+		UserID:    userID,
+		Action:    action,
+		Details:   details,
+		CreatedAt: time.Now(),
+	}
+	return s.userRepo.(*repository.GORMUserRepository).DB().Create(log).Error
+}
+
+// ListUserActivityLogs returns activity logs for a user (admin)
+func (s *UserService) ListUserActivityLogs(userID string, limit, offset int) ([]*models.UserActivityLog, error) {
+	var logs []*models.UserActivityLog
+	db := s.userRepo.(*repository.GORMUserRepository).DB()
+	if userID != "" {
+		db = db.Where("user_id = ?", userID)
+	}
+	if err := db.Order("created_at desc").Limit(limit).Offset(offset).Find(&logs).Error; err != nil {
+		return nil, err
+	}
+	return logs, nil
 }
