@@ -28,6 +28,15 @@ func NewUserHandler(userService *services.UserService, logger *logrus.Logger) *U
 }
 
 // GetProfile retrieves the current user's profile
+// @Summary Get user profile
+// @Description Get the current authenticated user's profile information
+// @Tags users
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} models.User "User profile retrieved successfully"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 500 {string} string "Internal server error"
+// @Router /users/profile [get]
 func (h *UserHandler) GetProfile() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get user from context
@@ -54,6 +63,18 @@ func (h *UserHandler) GetProfile() http.Handler {
 }
 
 // UpdateProfile updates the current user's profile
+// @Summary Update user profile
+// @Description Update the current authenticated user's profile information
+// @Tags users
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param profile body models.UpdateUserRequest true "Profile update data"
+// @Success 200 {object} models.User "Profile updated successfully"
+// @Failure 400 {string} string "Invalid request data"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 500 {string} string "Internal server error"
+// @Router /users/profile [put]
 func (h *UserHandler) UpdateProfile() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get user from context
@@ -88,6 +109,18 @@ func (h *UserHandler) UpdateProfile() http.Handler {
 }
 
 // ChangePassword changes the current user's password
+// @Summary Change password
+// @Description Change the current authenticated user's password
+// @Tags users
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param password body models.ChangePasswordRequest true "Password change data"
+// @Success 200 {object} map[string]string "Password changed successfully"
+// @Failure 400 {string} string "Invalid request data or incorrect current password"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 500 {string} string "Internal server error"
+// @Router /users/change-password [post]
 func (h *UserHandler) ChangePassword() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get user from context
@@ -129,7 +162,19 @@ func (h *UserHandler) ChangePassword() http.Handler {
 	})
 }
 
-// ListUsers retrieves a list of users (admin only)
+// ListUsers retrieves a list of users with pagination (admin only)
+// @Summary List users
+// @Description Get a paginated list of all users (admin only)
+// @Tags admin
+// @Security BearerAuth
+// @Produce json
+// @Param limit query int false "Number of users to return (default: 10)"
+// @Param offset query int false "Number of users to skip (default: 0)"
+// @Success 200 {object} map[string]interface{} "Users list retrieved successfully"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 403 {string} string "Forbidden - Admin role required"
+// @Failure 500 {string} string "Internal server error"
+// @Router /admin/users [get]
 func (h *UserHandler) ListUsers() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Parse query parameters
@@ -172,6 +217,18 @@ func (h *UserHandler) ListUsers() http.Handler {
 }
 
 // GetUser retrieves a specific user by ID (admin only)
+// @Summary Get user by ID
+// @Description Get a specific user by their ID (admin only)
+// @Tags admin
+// @Security BearerAuth
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} models.User "User retrieved successfully"
+// @Failure 400 {string} string "Invalid user ID"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 403 {string} string "Forbidden - Admin role required"
+// @Failure 404 {string} string "User not found"
+// @Router /admin/users/{id} [get]
 func (h *UserHandler) GetUser() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get user ID from URL parameters
@@ -200,6 +257,21 @@ func (h *UserHandler) GetUser() http.Handler {
 }
 
 // UpdateUser updates a specific user by ID (admin only)
+// @Summary Update user by ID
+// @Description Update a specific user by their ID (admin only)
+// @Tags admin
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param user body models.UpdateUserRequest true "User update data"
+// @Success 200 {object} models.User "User updated successfully"
+// @Failure 400 {string} string "Invalid request data"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 403 {string} string "Forbidden - Admin role required"
+// @Failure 404 {string} string "User not found"
+// @Failure 500 {string} string "Internal server error"
+// @Router /admin/users/{id} [put]
 func (h *UserHandler) UpdateUser() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get user ID from URL parameters
@@ -236,6 +308,19 @@ func (h *UserHandler) UpdateUser() http.Handler {
 }
 
 // DeleteUser deletes a specific user by ID (admin only)
+// @Summary Delete user by ID
+// @Description Delete a specific user by their ID (admin only)
+// @Tags admin
+// @Security BearerAuth
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} map[string]string "User deleted successfully"
+// @Failure 400 {string} string "Invalid user ID"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 403 {string} string "Forbidden - Admin role required"
+// @Failure 404 {string} string "User not found"
+// @Failure 500 {string} string "Internal server error"
+// @Router /admin/users/{id} [delete]
 func (h *UserHandler) DeleteUser() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get user ID from URL parameters

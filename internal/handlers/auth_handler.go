@@ -26,6 +26,16 @@ func NewAuthHandler(authService *services.AuthService, logger *logrus.Logger) *A
 }
 
 // Register handles user registration
+// @Summary Register a new user
+// @Description Register a new user account with username, email, and password
+// @Tags authentication
+// @Accept json
+// @Produce json
+// @Param user body models.CreateUserRequest true "User registration data"
+// @Success 201 {object} models.AuthResponse "User registered successfully"
+// @Failure 400 {string} string "Invalid request data"
+// @Failure 409 {string} string "Username or email already exists"
+// @Router /auth/register [post]
 func (h *AuthHandler) Register() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Parse request body
@@ -59,6 +69,16 @@ func (h *AuthHandler) Register() http.Handler {
 }
 
 // Login handles user login
+// @Summary Login user
+// @Description Authenticate user with username and password
+// @Tags authentication
+// @Accept json
+// @Produce json
+// @Param credentials body models.LoginRequest true "Login credentials"
+// @Success 200 {object} models.AuthResponse "Login successful"
+// @Failure 400 {string} string "Invalid request data"
+// @Failure 401 {string} string "Invalid credentials"
+// @Router /auth/login [post]
 func (h *AuthHandler) Login() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Parse request body
@@ -92,6 +112,16 @@ func (h *AuthHandler) Login() http.Handler {
 }
 
 // RefreshToken handles token refresh
+// @Summary Refresh access token
+// @Description Generate new access token using refresh token
+// @Tags authentication
+// @Accept json
+// @Produce json
+// @Param refresh body models.RefreshTokenRequest true "Refresh token"
+// @Success 200 {object} models.AuthResponse "Token refreshed successfully"
+// @Failure 400 {string} string "Invalid request data"
+// @Failure 401 {string} string "Invalid or expired refresh token"
+// @Router /auth/refresh [post]
 func (h *AuthHandler) RefreshToken() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Parse request body
@@ -125,6 +155,13 @@ func (h *AuthHandler) RefreshToken() http.Handler {
 }
 
 // Logout handles user logout
+// @Summary Logout user
+// @Description Logout user and invalidate session
+// @Tags authentication
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} map[string]string "Logout successful"
+// @Router /auth/logout [post]
 func (h *AuthHandler) Logout() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// In a real application, you might want to blacklist the refresh token
