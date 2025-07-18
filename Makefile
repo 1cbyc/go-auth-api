@@ -1,8 +1,11 @@
 # Go Auth API Makefile
+# A comprehensive Makefile for building, testing, and deploying the Go Auth API
+
+.PHONY: help build run test clean docker-build docker-run docker-stop dev-setup db-start db-stop migrate seed swagger docs
 
 # Variables
 BINARY_NAME=go-auth-api
-BUILD_DIR=build
+BINARY_UNIX=$(BINARY_NAME)_unix
 DOCKER_IMAGE=go-auth-api
 DOCKER_TAG=latest
 
@@ -13,159 +16,179 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
-
-# Build flags
-LDFLAGS=-ldflags "-X main.Version=$(shell git describe --tags --always --dirty) -X main.BuildTime=$(shell date -u '+%Y-%m-%d_%H:%M:%S')"
-
-.PHONY: all build clean test deps run docker-build docker-run help
+BINARY_DIR=bin
 
 # Default target
-all: clean build
+help: ## Show this help message
+	@echo "Go Auth API - Available Commands:"
+	@echo ""
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-# Build the application
-build:
-	@echo "Building $(BINARY_NAME)..."
-	@mkdir -p $(BUILD_DIR)
-	$(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) main.go
-	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
+# Development Commands
+dev-setup: ## Set up development environment with database
+	@echo "🚀 Setting up development environment..."
+	@if [ -f "scripts/dev-setup.sh" ]; then \
+		chmod +x scripts/dev-setup.sh && ./scripts/dev-setup.sh; \
+	elif [ -f "scripts/dev-setup.ps1" ]; then \
+		powershell -ExecutionPolicy Bypass -File scripts/dev-setup.ps1; \
+	else \
+		echo "⚠️  Setup script not found. Please run manually:"; \
+		echo "   - Copy env.example to .env"; \
+		echo "   - Start PostgreSQL: docker-compose up -d postgres"; \
+		echo "   - Install dependencies: go mod tidy"; \
+	fi
 
-# Clean build artifacts
-clean:
-	@echo "Cleaning build artifacts..."
-	$(GOCLEAN)
-	@rm -rf $(BUILD_DIR)
-	@echo "Clean complete"
+build: ## Build the application
+	@echo "🔨 Building application..."
+	@mkdir -p $(BINARY_DIR)
+	$(GOBUILD) -o $(BINARY_DIR)/$(BINARY_NAME) -v ./main.go
 
-# Run tests
-test:
-	@echo "Running tests..."
-	$(GOTEST) -v ./...
-
-# Run tests with coverage
-test-coverage:
-	@echo "Running tests with coverage..."
-	$(GOTEST) -v -coverprofile=coverage.out ./...
-	$(GOCMD) tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
-
-# Install dependencies
-deps:
-	@echo "Installing dependencies..."
-	$(GOMOD) download
-	$(GOMOD) tidy
-
-# Run the application
-run:
-	@echo "Running $(BINARY_NAME)..."
+run: ## Run the application locally
+	@echo "🚀 Running application..."
 	$(GOCMD) run main.go
 
-# Run with hot reload (requires air)
-dev:
-	@echo "Running with hot reload..."
-	@if command -v air > /dev/null; then \
-		air; \
+run-docker: ## Run the application with Docker Compose
+	@echo "🐳 Running application with Docker Compose..."
+	docker-compose up --build
+
+# Database Commands
+db-start: ## Start PostgreSQL database
+	@echo "🐘 Starting PostgreSQL database..."
+	docker-compose up -d postgres
+
+db-stop: ## Stop PostgreSQL database
+	@echo "🛑 Stopping PostgreSQL database..."
+	docker-compose stop postgres
+
+db-reset: ## Reset PostgreSQL database (remove volumes)
+	@echo "🔄 Resetting PostgreSQL database..."
+	docker-compose down -v
+	docker-compose up -d postgres
+
+migrate: ## Run database migrations
+	@echo "🗄️  Running database migrations..."
+	$(GOCMD) run main.go migrate
+
+seed: ## Seed database with initial data
+	@echo "🌱 Seeding database with initial data..."
+	$(GOCMD) run main.go seed
+
+# Testing Commands
+test: ## Run tests
+	@echo "🧪 Running tests..."
+	$(GOTEST) -v ./...
+
+test-coverage: ## Run tests with coverage
+	@echo "🧪 Running tests with coverage..."
+	$(GOTEST) -v -coverprofile=coverage.out ./...
+	$(GOCMD) tool cover -html=coverage.out -o coverage.html
+	@echo "📊 Coverage report generated: coverage.html"
+
+test-bench: ## Run benchmark tests
+	@echo "⚡ Running benchmark tests..."
+	$(GOTEST) -bench=. ./...
+
+# Documentation Commands
+swagger: ## Generate Swagger documentation
+	@echo "📚 Generating Swagger documentation..."
+	@if command -v swag >/dev/null 2>&1; then \
+		swag init; \
 	else \
-		echo "Air not found. Installing..."; \
-		go install github.com/cosmtrek/air@latest; \
-		air; \
+		echo "⚠️  swag tool not found. Install with: go install github.com/swaggo/swag/cmd/swag@latest"; \
 	fi
 
-# Build Docker image
-docker-build:
-	@echo "Building Docker image..."
+docs: swagger ## Generate all documentation
+	@echo "📖 Documentation generated"
+
+# Docker Commands
+docker-build: ## Build Docker image
+	@echo "🐳 Building Docker image..."
 	docker build -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
 
-# Run Docker container
-docker-run:
-	@echo "Running Docker container..."
+docker-run: ## Run Docker container
+	@echo "🐳 Running Docker container..."
 	docker run -p 8080:8080 --env-file .env $(DOCKER_IMAGE):$(DOCKER_TAG)
 
-# Run with Docker Compose
-docker-compose-up:
-	@echo "Starting services with Docker Compose..."
-	docker-compose up -d
-
-# Stop Docker Compose services
-docker-compose-down:
-	@echo "Stopping Docker Compose services..."
+docker-stop: ## Stop all Docker containers
+	@echo "🛑 Stopping Docker containers..."
 	docker-compose down
 
-# View Docker Compose logs
-docker-compose-logs:
-	docker-compose logs -f
+docker-clean: ## Clean Docker images and containers
+	@echo "🧹 Cleaning Docker resources..."
+	docker-compose down -v --rmi all
+	docker system prune -f
 
-# Lint code
-lint:
-	@echo "Linting code..."
-	@if command -v golangci-lint > /dev/null; then \
+# Build Commands
+build-linux: ## Build for Linux
+	@echo "🐧 Building for Linux..."
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BINARY_DIR)/$(BINARY_UNIX) -v ./main.go
+
+build-windows: ## Build for Windows
+	@echo "🪟 Building for Windows..."
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GOBUILD) -o $(BINARY_DIR)/$(BINARY_NAME).exe -v ./main.go
+
+build-mac: ## Build for macOS
+	@echo "🍎 Building for macOS..."
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GOBUILD) -o $(BINARY_DIR)/$(BINARY_NAME)_mac -v ./main.go
+
+# Utility Commands
+clean: ## Clean build artifacts
+	@echo "🧹 Cleaning build artifacts..."
+	$(GOCLEAN)
+	rm -rf $(BINARY_DIR)
+	rm -f coverage.out coverage.html
+
+deps: ## Install dependencies
+	@echo "📦 Installing dependencies..."
+	$(GOMOD) tidy
+	$(GOMOD) download
+
+lint: ## Run linter
+	@echo "🔍 Running linter..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
 		golangci-lint run; \
 	else \
-		echo "golangci-lint not found. Installing..."; \
-		go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; \
-		golangci-lint run; \
+		echo "⚠️  golangci-lint not found. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
 	fi
 
-# Format code
-fmt:
-	@echo "Formatting code..."
+format: ## Format code
+	@echo "🎨 Formatting code..."
 	$(GOCMD) fmt ./...
 
-# Vet code
-vet:
-	@echo "Vetting code..."
+vet: ## Run go vet
+	@echo "🔍 Running go vet..."
 	$(GOCMD) vet ./...
 
-# Security audit
-audit:
-	@echo "Running security audit..."
-	$(GOCMD) list -json -deps ./... | nancy sleuth
+# Production Commands
+prod-build: ## Build optimized binary for production
+	@echo "🏭 Building production binary..."
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -ldflags="-s -w" -o $(BINARY_DIR)/$(BINARY_NAME)_prod -v ./main.go
 
-# Generate API documentation
-docs:
-	@echo "Generating API documentation..."
-	@if command -v swag > /dev/null; then \
-		swag init -g main.go; \
+prod-run: ## Run production build
+	@echo "🚀 Running production build..."
+	./$(BINARY_DIR)/$(BINARY_NAME)_prod
+
+# Health Check Commands
+health: ## Check application health
+	@echo "🏥 Checking application health..."
+	@curl -f http://localhost:8080/health || echo "❌ Application is not running"
+
+# API Testing Commands
+test-api: ## Test API endpoints
+	@echo "🧪 Testing API endpoints..."
+	@if [ -f "test-api.sh" ]; then \
+		chmod +x test-api.sh && ./test-api.sh; \
+	elif [ -f "test-api.ps1" ]; then \
+		powershell -ExecutionPolicy Bypass -File test-api.ps1; \
 	else \
-		echo "swag not found. Installing..."; \
-		go install github.com/swaggo/swag/cmd/swag@latest; \
-		swag init -g main.go; \
+		echo "⚠️  API test script not found"; \
 	fi
 
-# Create release
-release:
-	@echo "Creating release..."
-	@mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 main.go
-	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 main.go
-	GOOS=windows GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe main.go
-	@echo "Release binaries created in $(BUILD_DIR)/"
+# Development Workflow
+dev: deps swagger run ## Complete development workflow
 
-# Install the application
-install:
-	@echo "Installing $(BINARY_NAME)..."
-	$(GOBUILD) $(LDFLAGS) -o $(GOPATH)/bin/$(BINARY_NAME) main.go
-	@echo "Installation complete"
+# Quick Start
+quick-start: dev-setup run ## Quick start with database setup and run
 
-# Show help
-help:
-	@echo "Available targets:"
-	@echo "  build              - Build the application"
-	@echo "  clean              - Clean build artifacts"
-	@echo "  test               - Run tests"
-	@echo "  test-coverage      - Run tests with coverage"
-	@echo "  deps               - Install dependencies"
-	@echo "  run                - Run the application"
-	@echo "  dev                - Run with hot reload"
-	@echo "  docker-build       - Build Docker image"
-	@echo "  docker-run         - Run Docker container"
-	@echo "  docker-compose-up  - Start services with Docker Compose"
-	@echo "  docker-compose-down - Stop Docker Compose services"
-	@echo "  docker-compose-logs - View Docker Compose logs"
-	@echo "  lint               - Lint code"
-	@echo "  fmt                - Format code"
-	@echo "  vet                - Vet code"
-	@echo "  audit              - Security audit"
-	@echo "  docs               - Generate API documentation"
-	@echo "  release            - Create release binaries"
-	@echo "  install            - Install the application"
-	@echo "  help               - Show this help message" 
+# Cleanup
+cleanup: clean docker-clean ## Complete cleanup 

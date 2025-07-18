@@ -12,10 +12,11 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	Server ServerConfig
-	JWT    JWTConfig
-	CORS   CORSConfig
-	Log    LogConfig
+	Server   ServerConfig
+	Database DatabaseConfig
+	JWT      JWTConfig
+	CORS     CORSConfig
+	Log      LogConfig
 }
 
 // ServerConfig holds server-related configuration
@@ -24,6 +25,20 @@ type ServerConfig struct {
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
+}
+
+// DatabaseConfig holds database-related configuration
+type DatabaseConfig struct {
+	Driver          string
+	Host            string
+	Port            int
+	Username        string
+	Password        string
+	DBName          string
+	SSLMode         string
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
 }
 
 // JWTConfig holds JWT-related configuration
@@ -61,6 +76,18 @@ func Load() (*Config, error) {
 			ReadTimeout:  getEnvAsDuration("SERVER_READ_TIMEOUT", 15*time.Second),
 			WriteTimeout: getEnvAsDuration("SERVER_WRITE_TIMEOUT", 15*time.Second),
 			IdleTimeout:  getEnvAsDuration("SERVER_IDLE_TIMEOUT", 60*time.Second),
+		},
+		Database: DatabaseConfig{
+			Driver:          getEnv("DB_DRIVER", "postgres"),
+			Host:            getEnv("DB_HOST", "localhost"),
+			Port:            getEnvAsInt("DB_PORT", 5432),
+			Username:        getEnv("DB_USERNAME", "postgres"),
+			Password:        getEnv("DB_PASSWORD", "password"),
+			DBName:          getEnv("DB_NAME", "go_auth_api"),
+			SSLMode:         getEnv("DB_SSL_MODE", "disable"),
+			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 25),
+			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 5),
+			ConnMaxLifetime: getEnvAsDuration("DB_CONN_MAX_LIFETIME", 5*time.Minute),
 		},
 		JWT: JWTConfig{
 			Secret:          getEnv("JWT_SECRET", "your-super-secret-jwt-key-change-in-production"),
@@ -116,10 +143,44 @@ func getEnvAsSlice(key string, defaultValue []string) []string {
 	return defaultValue
 }
 
+// GetDSN returns the database connection string
+func (c *DatabaseConfig) GetDSN() string {
+	switch c.Driver {
+	case "postgres":
+		return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+			c.Host, c.Port, c.Username, c.Password, c.DBName, c.SSLMode)
+	case "mysql":
+		return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+			c.Username, c.Password, c.Host, c.Port, c.DBName)
+	default:
+		return ""
+	}
+}
+
 // Validate validates the configuration
 func (c *Config) Validate() error {
 	if c.Server.Port <= 0 {
 		return fmt.Errorf("invalid server port: %d", c.Server.Port)
+	}
+
+	if c.Database.Driver == "" {
+		return fmt.Errorf("database driver cannot be empty")
+	}
+
+	if c.Database.Host == "" {
+		return fmt.Errorf("database host cannot be empty")
+	}
+
+	if c.Database.Port <= 0 {
+		return fmt.Errorf("invalid database port: %d", c.Database.Port)
+	}
+
+	if c.Database.Username == "" {
+		return fmt.Errorf("database username cannot be empty")
+	}
+
+	if c.Database.DBName == "" {
+		return fmt.Errorf("database name cannot be empty")
 	}
 
 	if c.JWT.Secret == "" {

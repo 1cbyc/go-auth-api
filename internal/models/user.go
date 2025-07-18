@@ -5,34 +5,52 @@ import (
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 // User represents a user in the system
 type User struct {
-	ID        string    `json:"id" db:"id"`
-	Username  string    `json:"username" db:"username"`
-	Email     string    `json:"email" db:"email"`
-	Password  string    `json:"-" db:"password"` // "-" means this field won't be included in JSON
-	Roles     []string  `json:"roles" db:"roles"`
-	Active    bool      `json:"active" db:"active"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	ID        string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	Username  string         `json:"username" gorm:"uniqueIndex;not null"`
+	Email     string         `json:"email" gorm:"uniqueIndex;not null"`
+	Password  string         `json:"-" gorm:"not null"` // "-" means this field won't be included in JSON
+	FirstName string         `json:"first_name" gorm:"not null"`
+	LastName  string         `json:"last_name" gorm:"not null"`
+	Role      string         `json:"role" gorm:"not null;default:'user'"`
+	IsActive  bool           `json:"is_active" gorm:"not null;default:true"`
+	CreatedAt time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
+}
+
+// RefreshToken represents a refresh token in the system
+type RefreshToken struct {
+	ID        string    `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	UserID    string    `json:"user_id" gorm:"not null;type:uuid"`
+	Token     string    `json:"token" gorm:"uniqueIndex;not null"`
+	ExpiresAt time.Time `json:"expires_at" gorm:"not null"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	User      User      `json:"-" gorm:"foreignKey:UserID"`
 }
 
 // CreateUserRequest represents the request to create a new user
 type CreateUserRequest struct {
-	Username string   `json:"username" validate:"required,min=3,max=50,alphanum"`
-	Email    string   `json:"email" validate:"required,email"`
-	Password string   `json:"password" validate:"required,min=8"`
-	Roles    []string `json:"roles,omitempty"`
+	Username  string `json:"username" validate:"required,min=3,max=50,alphanum"`
+	Email     string `json:"email" validate:"required,email"`
+	Password  string `json:"password" validate:"required,min=8"`
+	FirstName string `json:"first_name" validate:"required"`
+	LastName  string `json:"last_name" validate:"required"`
+	Role      string `json:"role,omitempty"`
 }
 
 // UpdateUserRequest represents the request to update a user
 type UpdateUserRequest struct {
-	Username string   `json:"username,omitempty" validate:"omitempty,min=3,max=50,alphanum"`
-	Email    string   `json:"email,omitempty" validate:"omitempty,email"`
-	Roles    []string `json:"roles,omitempty"`
-	Active   *bool    `json:"active,omitempty"`
+	Username  string `json:"username,omitempty" validate:"omitempty,min=3,max=50,alphanum"`
+	Email     string `json:"email,omitempty" validate:"omitempty,email"`
+	FirstName string `json:"first_name,omitempty"`
+	LastName  string `json:"last_name,omitempty"`
+	Role      string `json:"role,omitempty"`
+	IsActive  *bool  `json:"is_active,omitempty"`
 }
 
 // ChangePasswordRequest represents the request to change a user's password
@@ -43,7 +61,7 @@ type ChangePasswordRequest struct {
 
 // LoginRequest represents the login request
 type LoginRequest struct {
-	Username string `json:"username" validate:"required"`
+	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
 }
 
@@ -69,22 +87,21 @@ func NewUser(req CreateUserRequest) (*User, error) {
 		return nil, err
 	}
 
-	// Set default roles if none provided
-	roles := req.Roles
-	if len(roles) == 0 {
-		roles = []string{"user"}
+	// Set default role if none provided
+	role := req.Role
+	if role == "" {
+		role = "user"
 	}
 
-	now := time.Now()
 	user := &User{
 		ID:        uuid.New().String(),
 		Username:  req.Username,
 		Email:     req.Email,
 		Password:  string(hashedPassword),
-		Roles:     roles,
-		Active:    true,
-		CreatedAt: now,
-		UpdatedAt: now,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		Role:      role,
+		IsActive:  true,
 	}
 
 	return user, nil
@@ -110,12 +127,7 @@ func (u *User) UpdatePassword(newPassword string) error {
 
 // HasRole checks if the user has a specific role
 func (u *User) HasRole(role string) bool {
-	for _, r := range u.Roles {
-		if r == role {
-			return true
-		}
-	}
-	return false
+	return u.Role == role
 }
 
 // HasAnyRole checks if the user has any of the specified roles
@@ -136,11 +148,17 @@ func (u *User) Update(req UpdateUserRequest) {
 	if req.Email != "" {
 		u.Email = req.Email
 	}
-	if req.Roles != nil {
-		u.Roles = req.Roles
+	if req.FirstName != "" {
+		u.FirstName = req.FirstName
 	}
-	if req.Active != nil {
-		u.Active = *req.Active
+	if req.LastName != "" {
+		u.LastName = req.LastName
+	}
+	if req.Role != "" {
+		u.Role = req.Role
+	}
+	if req.IsActive != nil {
+		u.IsActive = *req.IsActive
 	}
 	u.UpdatedAt = time.Now()
 }
@@ -148,4 +166,9 @@ func (u *User) Update(req UpdateUserRequest) {
 // Sanitize removes sensitive information from the user object
 func (u *User) Sanitize() {
 	u.Password = ""
+}
+
+// FullName returns the user's full name
+func (u *User) FullName() string {
+	return u.FirstName + " " + u.LastName
 }

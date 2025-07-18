@@ -4,7 +4,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/1cbyc/go-auth-api/internal/models"
+	"go-auth-api/internal/models"
 )
 
 // UserRepository defines the interface for user data operations
@@ -15,8 +15,8 @@ type UserRepository interface {
 	GetByEmail(email string) (*models.User, error)
 	Update(user *models.User) error
 	Delete(id string) error
-	List(limit, offset int) ([]*models.User, error)
-	Count() (int, error)
+	List(offset, limit int) ([]*models.User, error)
+	Count() (int64, error)
 }
 
 // InMemoryUserRepository implements UserRepository with in-memory storage
@@ -143,7 +143,7 @@ func (r *InMemoryUserRepository) Delete(id string) error {
 }
 
 // List retrieves a list of users with pagination
-func (r *InMemoryUserRepository) List(limit, offset int) ([]*models.User, error) {
+func (r *InMemoryUserRepository) List(offset, limit int) ([]*models.User, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
@@ -172,30 +172,34 @@ func (r *InMemoryUserRepository) List(limit, offset int) ([]*models.User, error)
 }
 
 // Count returns the total number of users
-func (r *InMemoryUserRepository) Count() (int, error) {
+func (r *InMemoryUserRepository) Count() (int64, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	return len(r.users), nil
+	return int64(len(r.users)), nil
 }
 
 // initializeDefaultUsers creates some default users for testing
 func (r *InMemoryUserRepository) initializeDefaultUsers() {
 	// Create admin user
 	adminUser, _ := models.NewUser(models.CreateUserRequest{
-		Username: "admin",
-		Email:    "admin@example.com",
-		Password: "adminpass123",
-		Roles:    []string{"admin", "user"},
+		Username:  "admin",
+		Email:     "admin@example.com",
+		Password:  "adminpass123",
+		FirstName: "Admin",
+		LastName:  "User",
+		Role:      "admin",
 	})
 	r.users[adminUser.ID] = adminUser
 
 	// Create regular user
 	regularUser, _ := models.NewUser(models.CreateUserRequest{
-		Username: "user",
-		Email:    "user@example.com",
-		Password: "userpass123",
-		Roles:    []string{"user"},
+		Username:  "user",
+		Email:     "user@example.com",
+		Password:  "userpass123",
+		FirstName: "Regular",
+		LastName:  "User",
+		Role:      "user",
 	})
 	r.users[regularUser.ID] = regularUser
 }

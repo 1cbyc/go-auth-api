@@ -6,342 +6,361 @@ I built a sophisticated, prod-ready authentication API with Go, to have JWT-base
 
 ## 🚀 Features
 
-- **JWT Authentication**: Secure token-based authentication with access and refresh tokens
-- **Role-Based Access Control**: Fine-grained permission system with user roles
-- **Password Security**: Bcrypt password hashing with configurable cost
-- **Comprehensive Logging**: Structured logging with request tracking
-- **CORS Support**: Configurable Cross-Origin Resource Sharing
-- **Graceful Shutdown**: Proper server shutdown handling
-- **Health Checks**: Built-in health monitoring endpoints
-- **Request ID Tracking**: Unique request IDs for debugging and monitoring
-- **Input Validation**: Comprehensive request validation
-- **Error Handling**: Proper HTTP status codes and error messages
+- **🔐 JWT Authentication** - Secure token-based authentication with access and refresh tokens
+- **👥 Role-Based Access Control** - Admin and user roles with granular permissions
+- **🗄️ PostgreSQL Database** - Full database integration with GORM ORM
+- **📚 Swagger Documentation** - Interactive API documentation
+- **🐳 Docker Support** - Complete containerization with Docker Compose
+- **🔒 Security Features** - Password hashing, CORS, rate limiting, input validation
+- **📊 Health Checks** - Database and application health monitoring
+- **🔄 Auto Migration** - Automatic database schema management
+- **🌱 Data Seeding** - Pre-populated test data
+- **📝 Structured Logging** - Comprehensive request and error logging
+- **⚡ High Performance** - Optimized for production workloads
 
 <!-- ## 🏗️ Architecture
 
 The application follows a clean, layered architecture:
 
 ```
-├── main.go                 # Application entry point
+go-auth-api/
 ├── internal/
-│   ├── config/            # Configuration management
-│   ├── models/            # Data models and validation
-│   ├── repository/        # Data access layer
-│   ├── services/          # Business logic layer
-│   ├── handlers/          # HTTP request handlers
-│   └── middleware/        # HTTP middleware
-├── docs/                  # Documentation
-└── README.md             # This file
-``` -->
+│   ├── config/          # Configuration management
+│   ├── database/        # Database connection and operations
+│   ├── handlers/        # HTTP request handlers
+│   ├── middleware/      # HTTP middleware (auth, CORS, logging)
+│   ├── models/          # Data models and validation
+│   ├── repository/      # Data access layer
+│   └── services/        # Business logic layer
+├── docs/               # Generated Swagger documentation
+├── scripts/            # Development and deployment scripts
+├── docker-compose.yml  # Multi-service Docker setup
+├── Dockerfile          # Application containerization
+├── Makefile           # Build and deployment automation
+└── README.md          # This file
+```
+-->
 
 ## Tech Stack
 
-- **Go 1.21+**: Core programming language
-- **Gorilla Mux**: HTTP router and URL matcher
-- **JWT**: JSON Web Token authentication
-- **Bcrypt**: Password hashing
-- **Logrus**: Structured logging
-- **Alice**: Middleware chaining
-- **CORS**: Cross-origin resource sharing
+- **Language**: Go 1.21+
+- **Framework**: Gin (HTTP router)
+- **Database**: PostgreSQL 15
+- **ORM**: GORM
+- **Authentication**: JWT (JSON Web Tokens)
+- **Documentation**: Swagger/OpenAPI 3.0
+- **Containerization**: Docker & Docker Compose
+- **Logging**: Logrus
+- **Validation**: Go validator
 
 ## Prerequisites
 
 - Go 1.21 or higher
+- Docker and Docker Compose
+- PostgreSQL (or use Docker)
 - Git
 
 ## 🚀 Quick Start
 
-### 1. Clone the repository
+### Option 1: Automated Setup (Recommended)
 
 ```bash
+# Clone the repository
+git clone <repository-url>
+cd go-auth-api
+
+# Run the automated setup
+make quick-start
+```
+
+### Option 2: Manual Setup
+
+```bash
+# 1. Clone the repository
 git clone https://github.com/1cbyc/go-auth-api.git
 cd go-auth-api
+
+# 2. Set up environment
+cp env.example .env
+
+# 3. Start PostgreSQL database
+docker-compose up -d postgres
+
+# 4. Install dependencies
+go mod tidy
+
+# 5. Generate Swagger docs
+go install github.com/swaggo/swag/cmd/swag@latest
+swag init
+
+# 6. Run the application
+go run main.go
 ```
 
-### 2. Install dependencies
+## 🐳 Docker Deployment
+
+### Development with Docker Compose
 
 ```bash
-go mod tidy
+# Start all services (app + database)
+docker-compose up --build
+
+# Start only the database
+docker-compose up -d postgres
+
+# View logs
+docker-compose logs -f
 ```
 
-### 3. Configure environment (optional)
+### Production Deployment
 
-Create a `.env` file in the root directory:
+```bash
+# Build production image
+make docker-build
 
-```env
+# Run with environment variables
+docker run -p 8080:8080 \
+  -e DB_HOST=your-db-host \
+  -e DB_PASSWORD=your-db-password \
+  -e JWT_SECRET=your-jwt-secret \
+  go-auth-api:latest
+```
+
+## ⚙️ Configuration
+
+The application uses environment variables for configuration. Copy `env.example` to `.env` and customize:
+
+```bash
 # Server Configuration
 SERVER_PORT=8080
 SERVER_READ_TIMEOUT=15s
 SERVER_WRITE_TIMEOUT=15s
 SERVER_IDLE_TIMEOUT=60s
 
+# Database Configuration
+DB_DRIVER=postgres
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=password
+DB_NAME=go_auth_api
+DB_SSL_MODE=disable
+
 # JWT Configuration
 JWT_SECRET=your-super-secret-jwt-key-change-in-production
 JWT_ACCESS_TOKEN_TTL=15m
 JWT_REFRESH_TOKEN_TTL=168h
-JWT_ISSUER=go-auth-api
 
-# CORS Configuration
-CORS_ALLOWED_ORIGINS=*
-CORS_ALLOWED_METHODS=GET,POST,PUT,DELETE,OPTIONS
-CORS_ALLOWED_HEADERS=*
-CORS_MAX_AGE=12h
-
-# Logging Configuration
+# Logging
 LOG_LEVEL=info
 LOG_FORMAT=text
 ```
 
-### 4. Run the application
+## API Documentation
 
-```bash
-go run main.go
-```
+Once the application is running, access the interactive API documentation:
 
-The server will start on `http://localhost:8080` by default.
+- **Swagger UI**: http://localhost:8080/docs
+- **OpenAPI JSON**: http://localhost:8080/swagger/doc.json
 
-## 📚 API Documentation
-
-### Authentication Endpoints
-
-#### Register User
-```http
-POST /api/v1/auth/register
-Content-Type: application/json
-
-{
-  "username": "john_doe",
-  "email": "john@example.com",
-  "password": "securepassword123",
-  "roles": ["user"]
-}
-```
-
-#### Login
-```http
-POST /api/v1/auth/login
-Content-Type: application/json
-
-{
-  "username": "john_doe",
-  "password": "securepassword123"
-}
-```
-
-#### Refresh Token
-```http
-POST /api/v1/auth/refresh
-Content-Type: application/json
-
-{
-  "refresh_token": "your-refresh-token"
-}
-```
-
-#### Logout
-```http
-POST /api/v1/auth/logout
-Authorization: Bearer your-access-token
-```
-
-### User Endpoints
-
-#### Get Profile
-```http
-GET /api/v1/users/profile
-Authorization: Bearer your-access-token
-```
-
-#### Update Profile
-```http
-PUT /api/v1/users/profile
-Authorization: Bearer your-access-token
-Content-Type: application/json
-
-{
-  "username": "new_username",
-  "email": "newemail@example.com"
-}
-```
-
-#### Change Password
-```http
-POST /api/v1/users/change-password
-Authorization: Bearer your-access-token
-Content-Type: application/json
-
-{
-  "current_password": "oldpassword",
-  "new_password": "newpassword123"
-}
-```
-
-### Admin Endpoints
-
-#### List Users
-```http
-GET /api/v1/admin/users?limit=10&offset=0
-Authorization: Bearer your-access-token
-```
-
-#### Get User
-```http
-GET /api/v1/admin/users/{user_id}
-Authorization: Bearer your-access-token
-```
-
-#### Update User
-```http
-PUT /api/v1/admin/users/{user_id}
-Authorization: Bearer your-access-token
-Content-Type: application/json
-
-{
-  "username": "updated_username",
-  "email": "updated@example.com",
-  "roles": ["user", "admin"],
-  "active": true
-}
-```
-
-#### Delete User
-```http
-DELETE /api/v1/admin/users/{user_id}
-Authorization: Bearer your-access-token
-```
-
-### Health Check
-
-#### Health Status
-```http
-GET /health
-```
-
-## 🔐 Security Features
-
-- **JWT Tokens**: Secure token-based authentication
-- **Password Hashing**: Bcrypt with configurable cost
-- **Role-Based Access**: Fine-grained permission control
-- **Input Validation**: Comprehensive request validation
-- **CORS Protection**: Configurable cross-origin policies
-- **Request Logging**: Audit trail for all requests
-- **Error Handling**: Secure error responses
-
-## 🧪 Testing
+## Authentication
 
 ### Default Users
 
-The application comes with two default users for testing:
+The application comes with pre-seeded users:
 
-1. **Admin User**:
-   - Username: `admin`
-   - Password: `adminpass123`
-   - Roles: `["admin", "user"]`
+- **Admin User**:
+  - Email: `admin@example.com`
+  - Password: `adminpass123`
+  - Role: `admin`
 
-2. **Regular User**:
-   - Username: `user`
-   - Password: `userpass123`
-   - Roles: `["user"]`
+- **Regular User**:
+  - Email: `user@example.com`
+  - Password: `userpass123`
+  - Role: `user`
 
-### Example API Calls
+### API Endpoints
 
-#### Register a new user:
+#### Public Endpoints
+- `POST /api/v1/auth/register` - User registration
+- `POST /api/v1/auth/login` - User login
+- `POST /api/v1/auth/refresh` - Refresh access token
+- `POST /api/v1/auth/logout` - User logout
+- `GET /health` - Health check
+
+#### Protected Endpoints (Require Authentication)
+- `GET /api/v1/users/profile` - Get user profile
+- `PUT /api/v1/users/profile` - Update user profile
+- `POST /api/v1/users/change-password` - Change password
+
+#### Admin Endpoints (Require Admin Role)
+- `GET /api/v1/admin/users` - List all users
+- `GET /api/v1/admin/users/{id}` - Get user by ID
+- `PUT /api/v1/admin/users/{id}` - Update user
+- `DELETE /api/v1/admin/users/{id}` - Delete user
+
+## 🗄️ Database
+
+### Schema
+
+The application automatically creates the following tables:
+
+- **users** - User accounts and profiles
+- **refresh_tokens** - JWT refresh token storage
+
+### Migrations
+
+Database migrations run automatically on startup. The application uses GORM's auto-migration feature.
+
+### Seeding
+
+Initial data is seeded automatically:
+- Admin user account
+- Regular user account
+
+## Testing
+
 ```bash
-curl -X POST http://localhost:8080/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "testuser",
-    "email": "test@example.com",
-    "password": "password123"
-  }'
+# Run all tests
+make test
+
+# Run tests with coverage
+make test-coverage
+
+# Run benchmark tests
+make test-bench
+
+# Test API endpoints
+make test-api
 ```
 
-#### Login:
+## Development
+
+### Available Make Commands
+
 ```bash
-curl -X POST http://localhost:8080/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "admin",
-    "password": "adminpass123"
-  }'
+# Show all available commands
+make help
+
+# Development workflow
+make dev-setup    # Set up development environment
+make run          # Run application locally
+make build        # Build application
+make test         # Run tests
+make swagger      # Generate Swagger docs
+
+# Database operations
+make db-start     # Start PostgreSQL
+make db-stop      # Stop PostgreSQL
+make db-reset     # Reset database
+make migrate      # Run migrations
+make seed         # Seed data
+
+# Docker operations
+make docker-build # Build Docker image
+make run-docker   # Run with Docker Compose
+make docker-stop  # Stop containers
+make docker-clean # Clean Docker resources
 ```
 
-#### Access protected endpoint:
+### Development Scripts
+
+- `scripts/dev-setup.sh` - Linux/macOS development setup
+- `scripts/dev-setup.ps1` - Windows development setup
+
+## 📊 Monitoring
+
+### Health Check
+
 ```bash
-curl -X GET http://localhost:8080/api/v1/users/profile \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+# Check application health
+curl http://localhost:8080/health
+
+# Response includes:
+{
+  "status": "healthy",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "service": "go-auth-api",
+  "version": "1.0.0",
+  "database": {
+    "status": "healthy"
+  }
+}
 ```
 
-## For Deployment
+### Logging
 
-### Docker (Recommended)
+The application uses structured logging with Logrus. Logs include:
+- Request details (method, path, status, duration)
+- User agent and client IP
+- Request ID for tracing
+- Error details with stack traces
 
-1. Build the Docker image:
+## 🚀 Production Deployment
+
+### Environment Variables
+
+Set these environment variables in production:
+
 ```bash
-docker build -t go-auth-api .
+# Required
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
+DB_HOST=your-production-db-host
+DB_PASSWORD=your-production-db-password
+
+# Optional
+LOG_LEVEL=info
+LOG_FORMAT=json
+DB_SSL_MODE=require
 ```
 
-2. Run the container:
+### Docker Production Build
+
 ```bash
-docker run -p 8080:8080 --env-file .env go-auth-api
+# Build optimized production image
+make prod-build
+
+# Run production container
+docker run -d \
+  --name go-auth-api \
+  -p 8080:8080 \
+  --env-file .env \
+  go-auth-api:latest
 ```
 
-### Binary Deployment
+### Kubernetes Deployment
 
-1. Build the binary:
-```bash
-go build -o go-auth-api main.go
-```
+See `k8s/` directory for Kubernetes manifests.
 
-2. Run the binary:
-```bash
-./go-auth-api
-```
+## Security Considerations
 
-## 🔧 Configuration
+- **JWT Secret**: Use a strong, unique secret in production
+- **Database**: Use SSL connections in production
+- **Passwords**: Automatically hashed with bcrypt
+- **CORS**: Configure allowed origins for your domain
+- **Rate Limiting**: Implemented to prevent abuse
+- **Input Validation**: All inputs are validated
+- **HTTPS**: Use HTTPS in production
 
-All configuration is handled through environment variables. See the `.env` example above for available options.
-
-## 📝 Logging
-
-The application uses structured logging with the following levels:
-- `debug`: Detailed debug information
-- `info`: General information about application flow
-- `warn`: Warning messages
-- `error`: Error messages
-
-Logs include:
-- Request ID for tracking
-- HTTP method and path
-- Response status code
-- Request duration
-- User agent and remote IP
-
-## TO COntribute
+## To Contribute
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request (I would review your code, and merge it too. If you send in AI written code, I might not merge it, since that shii tends to break things more if you have no idea what you're doing)
+4. Add tests
+5. Run the test suite
+6. Submit a pull request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## If you want to add to this
+## Support
 
-If you have questions, or want to help improve, please open an issue on GitHub. I would respond almost instantly.
+- **Documentation**: Check the [docs/](docs/) directory
+- **Issues**: Create an issue on GitHub
+- **Discussions**: Use GitHub Discussions
 
-## What I'm doing:
+## Roadmap
 
-- [ ] Database integration (PostgreSQL/MySQL)
-- [ ] Redis for session management
-- [ ] Rate limiting
-- [ ] Two-factor authentication
-- [ ] Email verification
-- [ ] Password reset functionality
-- [ ] API documentation with Swagger
-- [ ] Unit and integration tests
-- [ ] CI/CD pipeline
-- [ ] Kubernetes deployment manifests
+See [docs/whats-next.md](docs/whats-next.md) for upcoming features and improvements.
