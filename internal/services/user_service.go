@@ -334,3 +334,32 @@ func (s *UserService) DisableTwoFA(userID string) error {
 	}
 	return nil
 }
+
+// UpdateAvatar updates the user's avatar URL
+func (s *UserService) UpdateAvatar(userID, avatarURL string) error {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return err
+	}
+	user.AvatarURL = avatarURL
+	return s.userRepo.Update(user)
+}
+
+// GetPreferences returns the user's preferences (as JSON string)
+func (s *UserService) GetPreferences(userID string) (string, error) {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return "", err
+	}
+	return user.Preferences, nil
+}
+
+// UpdatePreferences updates the user's preferences (as JSON string)
+func (s *UserService) UpdatePreferences(userID, prefs string) error {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return err
+	}
+	user.Preferences = prefs
+	return s.userRepo.Update(user)
+}

@@ -26,6 +26,11 @@ type User struct {
 	CreatedAt           time.Time      `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt           time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt           gorm.DeletedAt `json:"-" gorm:"index"`
+	Bio                 string         `json:"bio" gorm:"type:text"`
+	Phone               string         `json:"phone" gorm:"type:varchar(32)"`
+	Address             string         `json:"address" gorm:"type:text"`
+	AvatarURL           string         `json:"avatar_url" gorm:"type:text"`
+	Preferences         string         `json:"preferences" gorm:"type:jsonb;default:'{}'"`
 }
 
 // RefreshToken represents a refresh token in the system
@@ -144,6 +149,16 @@ type TwoFASetupResponse struct {
 type TwoFAVerifyRequest struct {
 	UserID string `json:"user_id" validate:"required"`
 	Code   string `json:"code" validate:"required"`
+}
+
+// UserActivityLog represents a user activity log entry
+// (for activity log feature)
+type UserActivityLog struct {
+	ID        string    `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	UserID    string    `json:"user_id" gorm:"not null;type:uuid;index"`
+	Action    string    `json:"action" gorm:"not null"`
+	Details   string    `json:"details" gorm:"type:text"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 }
 
 // NewUser creates a new user with default values

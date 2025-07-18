@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -397,6 +398,131 @@ func (h *UserHandler) DisableTwoFA(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "2FA disabled"})
+}
+
+// UploadAvatar handles avatar upload
+// @Summary Upload avatar
+// @Description Upload a profile picture
+// @Tags users
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param avatar formData file true "Avatar image"
+// @Success 200 {object} map[string]string "Avatar uploaded"
+// @Failure 400 {string} string "Invalid request data"
+// @Router /users/avatar [post]
+func (h *UserHandler) UploadAvatar(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.logger.Error("User ID not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	file, err := c.FormFile("avatar")
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to get avatar file")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file"})
+		return
+	}
+	filename := "avatars/" + userID.(string) + "_" + file.Filename
+	if err := c.SaveUploadedFile(file, filename); err != nil {
+		h.logger.WithError(err).Error("Failed to save avatar file")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+		return
+	}
+	if err := h.userService.UpdateAvatar(userID.(string), "/"+filename); err != nil {
+		h.logger.WithError(err).Error("Failed to update user avatar")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"avatar_url": "/" + filename})
+}
+
+// GetAvatar serves the user's avatar
+// @Summary Get avatar
+// @Description Get the user's profile picture
+// @Tags users
+// @Security BearerAuth
+// @Produce image/*
+// @Success 200 {file} file "Avatar image"
+// @Failure 404 {string} string "Avatar not found"
+// @Router /users/avatar [get]
+func (h *UserHandler) GetAvatar(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.logger.Error("User ID not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	user, err := h.userService.GetProfile(userID.(string))
+	if err != nil || user.AvatarURL == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Avatar not found"})
+		return
+	}
+	c.File("." + user.AvatarURL)
+}
+
+// GetPreferences returns the user's preferences
+// @Summary Get user preferences
+// @Description Get the current user's preferences
+// @Tags users
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} map[string]interface{} "User preferences"
+// @Failure 401 {string} string "Unauthorized"
+// @Router /users/preferences [get]
+func (h *UserHandler) GetPreferences(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.logger.Error("User ID not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	prefs, err := h.userService.GetPreferences(userID.(string))
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to get preferences")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get preferences"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"preferences": prefs})
+}
+
+// UpdatePreferences updates the user's preferences
+// @Summary Update user preferences
+// @Description Update the current user's preferences
+// @Tags users
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param preferences body map[string]interface{} true "Preferences JSON"
+// @Success 200 {object} map[string]string "Preferences updated"
+// @Failure 400 {string} string "Invalid request data"
+// @Router /users/preferences [put]
+func (h *UserHandler) UpdatePreferences(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.logger.Error("User ID not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var prefs map[string]interface{}
+	if err := c.ShouldBindJSON(&prefs); err != nil {
+		h.logger.WithError(err).Error("Failed to decode preferences")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+	prefsJSON, err := json.Marshal(prefs)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to marshal preferences")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid preferences"})
+		return
+	}
+	if err := h.userService.UpdatePreferences(userID.(string), string(prefsJSON)); err != nil {
+		h.logger.WithError(err).Error("Failed to update preferences")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update preferences"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Preferences updated"})
 }
 
 // Helper functions for validation

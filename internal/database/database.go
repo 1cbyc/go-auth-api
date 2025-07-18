@@ -63,6 +63,7 @@ func (d *Database) AutoMigrate() error {
 		&models.RefreshToken{},
 		&models.PasswordResetToken{},
 		&models.EmailVerificationToken{}, // added for email verification
+		&models.UserActivityLog{},        // added for activity log
 	)
 
 	if err != nil {
