@@ -219,3 +219,58 @@ func (s *UserService) ConfirmPasswordReset(token, newPassword string) error {
 	}
 	return nil
 }
+
+// GenerateAndSendEmailVerification generates a verification token and simulates sending email
+func (s *UserService) GenerateAndSendEmailVerification(user *models.User) error {
+	// Generate secure random token
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return errors.New("failed to generate token")
+	}
+	token := base64.URLEncoding.EncodeToString(tokenBytes)
+
+	// Create email verification token
+	evt := &models.EmailVerificationToken{
+		UserID:    user.ID,
+		Token:     token,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+	}
+	if err := s.emailVerificationTokenRepo.Create(evt); err != nil {
+		return errors.New("failed to store email verification token")
+	}
+
+	// Simulate sending email (log to console)
+	verifyLink := "https://your-app/verify-email?token=" + token
+	println("[Simulated email] Email verification link for", user.Email, ":", verifyLink)
+	return nil
+}
+
+// VerifyEmail validates the token and marks the user as verified
+func (s *UserService) VerifyEmail(token string) error {
+	evt, err := s.emailVerificationTokenRepo.GetByToken(token)
+	if err != nil || evt == nil {
+		return errors.New("invalid or expired token")
+	}
+	if evt.Used {
+		return errors.New("token already used")
+	}
+	if time.Now().After(evt.ExpiresAt) {
+		return errors.New("token expired")
+	}
+
+	user, err := s.userRepo.GetByID(evt.UserID)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	if user.IsEmailVerified {
+		return errors.New("email already verified")
+	}
+	user.IsEmailVerified = true
+	if err := s.userRepo.Update(user); err != nil {
+		return errors.New("failed to update user")
+	}
+	if err := s.emailVerificationTokenRepo.MarkUsed(token); err != nil {
+		return errors.New("failed to mark token used")
+	}
+	return nil
+}
