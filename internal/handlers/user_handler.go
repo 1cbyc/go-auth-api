@@ -549,6 +549,42 @@ func (h *UserHandler) DeleteAccount(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Account deleted"})
 }
 
+// ListUserActivityLogs lists user activity logs (admin only)
+// @Summary List user activity logs
+// @Description List activity logs for a user (admin only)
+// @Tags admin
+// @Security BearerAuth
+// @Produce json
+// @Param user_id query string false "User ID"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Success 200 {object} map[string]interface{} "Activity logs"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 403 {string} string "Forbidden"
+// @Router /admin/activity-logs [get]
+func (h *UserHandler) ListUserActivityLogs(c *gin.Context) {
+	userID := c.Query("user_id")
+	limit := 50
+	offset := 0
+	if l := c.Query("limit"); l != "" {
+		if v, err := strconv.Atoi(l); err == nil && v > 0 {
+			limit = v
+		}
+	}
+	if o := c.Query("offset"); o != "" {
+		if v, err := strconv.Atoi(o); err == nil && v >= 0 {
+			offset = v
+		}
+	}
+	logs, err := h.userService.ListUserActivityLogs(userID, limit, offset)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to list activity logs")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list activity logs"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"logs": logs, "limit": limit, "offset": offset})
+}
+
 // Helper functions for validation
 func validateChangePasswordRequest(req models.ChangePasswordRequest) error {
 	if req.CurrentPassword == "" {
