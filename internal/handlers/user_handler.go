@@ -585,6 +585,60 @@ func (h *UserHandler) ListUserActivityLogs(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"logs": logs, "limit": limit, "offset": offset})
 }
 
+// BulkUpdateUsers handles batch user updates (admin only)
+// @Summary Bulk update users
+// @Description Batch update users (admin only)
+// @Tags admin
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param updates body []models.UpdateUserRequest true "User updates"
+// @Success 200 {object} map[string]interface{} "Bulk update result"
+// @Failure 400 {string} string "Invalid request data"
+// @Router /admin/users/bulk-update [post]
+func (h *UserHandler) BulkUpdateUsers(c *gin.Context) {
+	var updates []models.UpdateUserRequest
+	if err := c.ShouldBindJSON(&updates); err != nil {
+		h.logger.WithError(err).Error("Failed to decode bulk update request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+	result, err := h.userService.BulkUpdateUsers(updates)
+	if err != nil {
+		h.logger.WithError(err).Error("Bulk update failed")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Bulk update failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"result": result})
+}
+
+// BulkDeleteUsers handles batch user deletes (admin only)
+// @Summary Bulk delete users
+// @Description Batch delete users (admin only)
+// @Tags admin
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param user_ids body []string true "User IDs"
+// @Success 200 {object} map[string]interface{} "Bulk delete result"
+// @Failure 400 {string} string "Invalid request data"
+// @Router /admin/users/bulk-delete [post]
+func (h *UserHandler) BulkDeleteUsers(c *gin.Context) {
+	var userIDs []string
+	if err := c.ShouldBindJSON(&userIDs); err != nil {
+		h.logger.WithError(err).Error("Failed to decode bulk delete request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+	result, err := h.userService.BulkDeleteUsers(userIDs)
+	if err != nil {
+		h.logger.WithError(err).Error("Bulk delete failed")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Bulk delete failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"result": result})
+}
+
 // Helper functions for validation
 func validateChangePasswordRequest(req models.ChangePasswordRequest) error {
 	if req.CurrentPassword == "" {

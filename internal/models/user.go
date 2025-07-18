@@ -11,8 +11,8 @@ import (
 // User represents a user in the system
 type User struct {
 	ID                  string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	Username            string         `json:"username" gorm:"uniqueIndex;not null"`
-	Email               string         `json:"email" gorm:"uniqueIndex;not null"`
+	Username            string         `json:"username" gorm:"uniqueIndex;not null;index"`
+	Email               string         `json:"email" gorm:"uniqueIndex;not null;index"`
 	Password            string         `json:"-" gorm:"not null"` // "-" means this field won't be included in JSON
 	FirstName           string         `json:"first_name" gorm:"not null"`
 	LastName            string         `json:"last_name" gorm:"not null"`
@@ -155,10 +155,10 @@ type TwoFAVerifyRequest struct {
 // (for activity log feature)
 type UserActivityLog struct {
 	ID        string    `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	UserID    string    `json:"user_id" gorm:"not null;type:uuid;index"`
+	UserID    string    `json:"user_id" gorm:"not null;type:uuid;index:user_activity_userid_createdat,priority:1"`
 	Action    string    `json:"action" gorm:"not null"`
 	Details   string    `json:"details" gorm:"type:text"`
-	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime;index:user_activity_userid_createdat,priority:2"`
 }
 
 // NewUser creates a new user with default values

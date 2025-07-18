@@ -28,6 +28,7 @@ type ServerConfig struct {
 }
 
 // DatabaseConfig holds database-related configuration
+// Connection pooling: MaxOpenConns, MaxIdleConns, ConnMaxLifetime
 type DatabaseConfig struct {
 	Driver          string
 	Host            string

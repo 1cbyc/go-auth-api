@@ -371,3 +371,44 @@ func (s *UserService) LogUserActivity(userID, action, details string) error {
 func (s *UserService) ListUserActivityLogs(userID string, limit, offset int) ([]*models.UserActivityLog, error) {
 	return s.userRepo.ListUserActivityLogs(userID, limit, offset)
 }
+
+// BulkUpdateUsers updates multiple users (admin)
+func (s *UserService) BulkUpdateUsers(updates []models.UpdateUserRequest) (map[string]interface{}, error) {
+	results := make(map[string]string)
+	for _, req := range updates {
+		if req.Username == "" && req.Email == "" {
+			continue
+		}
+		var user *models.User
+		var err error
+		if req.Username != "" {
+			user, err = s.userRepo.GetByUsername(req.Username)
+		} else {
+			user, err = s.userRepo.GetByEmail(req.Email)
+		}
+		if err != nil {
+			results[req.Username+req.Email] = "not found"
+			continue
+		}
+		user.Update(req)
+		if err := s.userRepo.Update(user); err != nil {
+			results[user.ID] = "update failed"
+			continue
+		}
+		results[user.ID] = "updated"
+	}
+	return map[string]interface{}{"summary": results}, nil
+}
+
+// BulkDeleteUsers deletes multiple users (admin)
+func (s *UserService) BulkDeleteUsers(userIDs []string) (map[string]interface{}, error) {
+	results := make(map[string]string)
+	for _, id := range userIDs {
+		if err := s.userRepo.Delete(id); err != nil {
+			results[id] = "delete failed"
+			continue
+		}
+		results[id] = "deleted"
+	}
+	return map[string]interface{}{"summary": results}, nil
+}
