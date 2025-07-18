@@ -188,12 +188,16 @@ The application comes with pre-seeded users:
 - `POST /api/v1/auth/logout` - User logout
 - `POST /api/v1/auth/request-password-reset` - Request password reset (simulated email)
 - `POST /api/v1/auth/confirm-password-reset` - Confirm password reset
+- `POST /api/v1/auth/verify-email` - Verify user email
 - `GET /health` - Health check
 
 #### Protected Endpoints (Require Authentication)
 - `GET /api/v1/users/profile` - Get user profile
 - `PUT /api/v1/users/profile` - Update user profile
 - `POST /api/v1/users/change-password` - Change password
+- `POST /api/v1/users/2fa/setup` - Initiate 2FA setup (get QR/secret)
+- `POST /api/v1/users/2fa/verify` - Verify 2FA code and enable 2FA
+- `POST /api/v1/users/2fa/disable` - Disable 2FA
 
 #### Admin Endpoints (Require Admin Role)
 - `GET /api/v1/admin/users` - List all users

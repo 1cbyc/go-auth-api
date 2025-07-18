@@ -186,6 +186,7 @@ func setupRouter(authHandler *handlers.AuthHandler, userHandler *handlers.UserHa
 			auth.POST("/logout", authHandler.Logout)
 			auth.POST("/request-password-reset", authHandler.RequestPasswordReset) // added
 			auth.POST("/confirm-password-reset", authHandler.ConfirmPasswordReset) // added
+			auth.POST("/verify-email", authHandler.VerifyEmail)                    // added
 		}
 
 		// Protected routes

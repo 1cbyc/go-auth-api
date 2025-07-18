@@ -54,6 +54,12 @@ func (s *AuthService) Register(req models.CreateUserRequest) (*models.AuthRespon
 		return nil, fmt.Errorf("failed to save user: %w", err)
 	}
 
+	// Generate and send email verification
+	userService := NewUserService(s.userRepo, s.refreshTokenRepo, s.passwordResetTokenRepo, s.emailVerificationTokenRepo)
+	if err := userService.GenerateAndSendEmailVerification(user); err != nil {
+		return nil, fmt.Errorf("failed to send verification email: %w", err)
+	}
+
 	// Generate tokens
 	accessToken, refreshToken, err := s.generateTokens(user)
 	if err != nil {
@@ -225,6 +231,12 @@ func (s *AuthService) RequestPasswordReset(email string) error {
 func (s *AuthService) ConfirmPasswordReset(token, newPassword string) error {
 	userService := NewUserService(s.userRepo, s.refreshTokenRepo, s.passwordResetTokenRepo, s.emailVerificationTokenRepo)
 	return userService.ConfirmPasswordReset(token, newPassword)
+}
+
+// VerifyEmail delegates to UserService for email verification
+func (s *AuthService) VerifyEmail(token string) error {
+	userService := NewUserService(s.userRepo, s.refreshTokenRepo, s.passwordResetTokenRepo, s.emailVerificationTokenRepo)
+	return userService.VerifyEmail(token)
 }
 
 // generateTokens generates access and refresh tokens for a user

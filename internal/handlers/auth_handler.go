@@ -234,6 +234,36 @@ func (h *AuthHandler) ConfirmPasswordReset(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Password reset successful"})
 }
 
+// VerifyEmail handles email verification
+// @Summary Verify email
+// @Description Verify user email using token
+// @Tags authentication
+// @Accept json
+// @Produce json
+// @Param request body models.EmailVerificationRequest true "Email verification request"
+// @Success 200 {object} map[string]string "Email verified successfully"
+// @Failure 400 {string} string "Invalid request data or token"
+// @Router /auth/verify-email [post]
+func (h *AuthHandler) VerifyEmail(c *gin.Context) {
+	var req models.EmailVerificationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.WithError(err).Error("Failed to decode email verification request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+	if req.Token == "" {
+		h.logger.Error("Empty token in email verification request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token is required"})
+		return
+	}
+	if err := h.authService.VerifyEmail(req.Token); err != nil {
+		h.logger.WithError(err).Error("Failed to verify email")
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Email verified successfully"})
+}
+
 // Helper functions for validation
 func validateCreateUserRequest(req models.CreateUserRequest) error {
 	if req.Username == "" {

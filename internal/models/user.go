@@ -19,6 +19,8 @@ type User struct {
 	Role            string         `json:"role" gorm:"not null;default:'user'"`
 	IsActive        bool           `json:"is_active" gorm:"not null;default:true"`
 	IsEmailVerified bool           `json:"is_email_verified" gorm:"not null;default:false"` // added
+	TwoFAEnabled    bool           `json:"two_fa_enabled" gorm:"not null;default:false"`    // 2FA enabled
+	TwoFASecret     string         `json:"-" gorm:"not null;default:''"`                    // 2FA secret, omit in JSON
 	CreatedAt       time.Time      `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt       time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt       gorm.DeletedAt `json:"-" gorm:"index"`
@@ -121,6 +123,25 @@ type PasswordResetRequest struct {
 type PasswordResetConfirmRequest struct {
 	Token       string `json:"token" validate:"required"`
 	NewPassword string `json:"new_password" validate:"required,min=8"`
+}
+
+// TwoFASetupRequest represents a request to enable 2FA
+// (user requests to enable 2FA)
+type TwoFASetupRequest struct {
+	UserID string `json:"user_id" validate:"required"`
+}
+
+// TwoFASetupResponse represents the response for 2FA setup (QR code, secret)
+type TwoFASetupResponse struct {
+	Secret  string `json:"secret"`
+	OTPAuth string `json:"otpauth_url"`
+}
+
+// TwoFAVerifyRequest represents a request to verify a TOTP code
+// (user submits code to enable/verify 2FA)
+type TwoFAVerifyRequest struct {
+	UserID string `json:"user_id" validate:"required"`
+	Code   string `json:"code" validate:"required"`
 }
 
 // NewUser creates a new user with default values
