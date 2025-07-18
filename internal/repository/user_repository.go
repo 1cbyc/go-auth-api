@@ -17,6 +17,8 @@ type UserRepository interface {
 	Delete(id string) error
 	List(offset, limit int) ([]*models.User, error)
 	Count() (int64, error)
+	LogUserActivity(userID, action, details string) error
+	ListUserActivityLogs(userID string, limit, offset int) ([]*models.UserActivityLog, error)
 }
 
 // RefreshTokenRepository defines the interface for refresh token operations
@@ -229,4 +231,12 @@ func (r *InMemoryUserRepository) initializeDefaultUsers() {
 		Role:      "user",
 	})
 	r.users[regularUser.ID] = regularUser
+}
+
+func (r *InMemoryUserRepository) LogUserActivity(userID, action, details string) error {
+	return nil // no-op for in-memory
+}
+
+func (r *InMemoryUserRepository) ListUserActivityLogs(userID string, limit, offset int) ([]*models.UserActivityLog, error) {
+	return []*models.UserActivityLog{}, nil // no-op for in-memory
 }

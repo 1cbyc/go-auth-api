@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"time"
 
 	"go-auth-api/internal/models"
 
@@ -84,6 +85,30 @@ func (r *GORMUserRepository) Count() (int64, error) {
 	var count int64
 	err := r.db.Model(&models.User{}).Count(&count).Error
 	return count, err
+}
+
+// LogUserActivity logs a user activity
+func (r *GORMUserRepository) LogUserActivity(userID, action, details string) error {
+	log := &models.UserActivityLog{
+		UserID:    userID,
+		Action:    action,
+		Details:   details,
+		CreatedAt: time.Now(),
+	}
+	return r.db.Create(log).Error
+}
+
+// ListUserActivityLogs retrieves user activity logs
+func (r *GORMUserRepository) ListUserActivityLogs(userID string, limit, offset int) ([]*models.UserActivityLog, error) {
+	var logs []*models.UserActivityLog
+	db := r.db
+	if userID != "" {
+		db = db.Where("user_id = ?", userID)
+	}
+	if err := db.Order("created_at desc").Limit(limit).Offset(offset).Find(&logs).Error; err != nil {
+		return nil, err
+	}
+	return logs, nil
 }
 
 // GORMRefreshTokenRepository implements RefreshTokenRepository using GORM

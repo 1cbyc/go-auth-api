@@ -364,24 +364,10 @@ func (s *UserService) UpdatePreferences(userID, prefs string) error {
 
 // LogUserActivity logs a user action
 func (s *UserService) LogUserActivity(userID, action, details string) error {
-	log := &models.UserActivityLog{
-		UserID:    userID,
-		Action:    action,
-		Details:   details,
-		CreatedAt: time.Now(),
-	}
-	return s.userRepo.(*repository.GORMUserRepository).DB().Create(log).Error
+	return s.userRepo.LogUserActivity(userID, action, details)
 }
 
 // ListUserActivityLogs returns activity logs for a user (admin)
 func (s *UserService) ListUserActivityLogs(userID string, limit, offset int) ([]*models.UserActivityLog, error) {
-	var logs []*models.UserActivityLog
-	db := s.userRepo.(*repository.GORMUserRepository).DB()
-	if userID != "" {
-		db = db.Where("user_id = ?", userID)
-	}
-	if err := db.Order("created_at desc").Limit(limit).Offset(offset).Find(&logs).Error; err != nil {
-		return nil, err
-	}
-	return logs, nil
+	return s.userRepo.ListUserActivityLogs(userID, limit, offset)
 }
