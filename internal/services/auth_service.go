@@ -32,8 +32,35 @@ func NewAuthService(userRepo repository.UserRepository, refreshTokenRepo reposit
 	}
 }
 
+// Helper: password policy enforcement
+func validatePasswordPolicy(password string) error {
+	if len(password) < 8 {
+		return errors.New("password must be at least 8 characters")
+	}
+	var hasUpper, hasLower, hasDigit, hasSpecial bool
+	for _, c := range password {
+		switch {
+		case 'A' <= c && c <= 'Z':
+			hasUpper = true
+		case 'a' <= c && c <= 'z':
+			hasLower = true
+		case '0' <= c && c <= '9':
+			hasDigit = true
+		case c >= 33 && c <= 47 || c >= 58 && c <= 64 || c >= 91 && c <= 96 || c >= 123 && c <= 126:
+			hasSpecial = true
+		}
+	}
+	if !hasUpper || !hasLower || !hasDigit || !hasSpecial {
+		return errors.New("password must contain upper, lower, digit, and special char")
+	}
+	return nil
+}
+
 // Register creates a new user account
 func (s *AuthService) Register(req models.CreateUserRequest) (*models.AuthResponse, error) {
+	if err := validatePasswordPolicy(req.Password); err != nil {
+		return nil, err
+	}
 	// Check if user already exists
 	if _, err := s.userRepo.GetByUsername(req.Username); err == nil {
 		return nil, errors.New("username already exists")
@@ -90,22 +117,24 @@ func (s *AuthService) Register(req models.CreateUserRequest) (*models.AuthRespon
 
 // Login authenticates a user and returns tokens
 func (s *AuthService) Login(req models.LoginRequest) (*models.AuthResponse, error) {
-	// Get user by email
 	user, err := s.userRepo.GetByEmail(req.Email)
 	if err != nil {
 		return nil, errors.New("invalid credentials")
 	}
-
-	// Check if user is active
-	if !user.IsActive {
-		return nil, errors.New("account is deactivated")
+	if user.LockoutUntil != nil && user.LockoutUntil.After(time.Now()) {
+		return nil, errors.New("account is locked. Try again later")
 	}
-
-	// Verify password
 	if !user.CheckPassword(req.Password) {
+		user.FailedLoginAttempts++
+		if user.FailedLoginAttempts >= 5 {
+			lockout := time.Now().Add(15 * time.Minute)
+			user.LockoutUntil = &lockout
+		}
+		s.userRepo.Update(user)
 		return nil, errors.New("invalid credentials")
 	}
-
+	user.FailedLoginAttempts = 0
+	user.LockoutUntil = nil
 	// Generate tokens
 	accessToken, refreshToken, err := s.generateTokens(user)
 	if err != nil {
@@ -237,6 +266,15 @@ func (s *AuthService) ConfirmPasswordReset(token, newPassword string) error {
 func (s *AuthService) VerifyEmail(token string) error {
 	userService := NewUserService(s.userRepo, s.refreshTokenRepo, s.passwordResetTokenRepo, s.emailVerificationTokenRepo)
 	return userService.VerifyEmail(token)
+}
+
+// ChangePassword enforces password policy
+func (s *AuthService) ChangePassword(userID string, req models.ChangePasswordRequest) error {
+	if err := validatePasswordPolicy(req.NewPassword); err != nil {
+		return err
+	}
+	userService := NewUserService(s.userRepo, s.refreshTokenRepo, s.passwordResetTokenRepo, s.emailVerificationTokenRepo)
+	return userService.ChangePassword(userID, req)
 }
 
 // generateTokens generates access and refresh tokens for a user

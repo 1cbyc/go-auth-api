@@ -9,6 +9,8 @@ import (
 
 	"go-auth-api/internal/models"
 	"go-auth-api/internal/repository"
+
+	"github.com/pquerna/otp/totp"
 )
 
 // UserService handles user-related business logic
@@ -271,6 +273,64 @@ func (s *UserService) VerifyEmail(token string) error {
 	}
 	if err := s.emailVerificationTokenRepo.MarkUsed(token); err != nil {
 		return errors.New("failed to mark token used")
+	}
+	return nil
+}
+
+// SetupTwoFA generates a TOTP secret and returns QR/otpauth URL
+func (s *UserService) SetupTwoFA(userID string) (string, string, error) {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return "", "", errors.New("user not found")
+	}
+	if user.TwoFAEnabled {
+		return "", "", errors.New("2FA already enabled")
+	}
+	secret := base64.StdEncoding.EncodeToString([]byte(userID + time.Now().String()))
+	key, err := totp.Generate(totp.GenerateOpts{
+		Issuer:      "GoAuthAPI",
+		AccountName: user.Email,
+		Secret:      []byte(secret),
+	})
+	if err != nil {
+		return "", "", errors.New("failed to generate TOTP secret")
+	}
+	user.TwoFASecret = key.Secret()
+	if err := s.userRepo.Update(user); err != nil {
+		return "", "", errors.New("failed to save 2FA secret")
+	}
+	return key.Secret(), key.URL(), nil
+}
+
+// VerifyTwoFA verifies a TOTP code and enables 2FA
+func (s *UserService) VerifyTwoFA(userID, code string) error {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	if user.TwoFASecret == "" {
+		return errors.New("2FA not set up")
+	}
+	if !totp.Validate(code, user.TwoFASecret) {
+		return errors.New("invalid 2FA code")
+	}
+	user.TwoFAEnabled = true
+	if err := s.userRepo.Update(user); err != nil {
+		return errors.New("failed to enable 2FA")
+	}
+	return nil
+}
+
+// DisableTwoFA disables 2FA for the user
+func (s *UserService) DisableTwoFA(userID string) error {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	user.TwoFAEnabled = false
+	user.TwoFASecret = ""
+	if err := s.userRepo.Update(user); err != nil {
+		return errors.New("failed to disable 2FA")
 	}
 	return nil
 }

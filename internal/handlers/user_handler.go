@@ -192,9 +192,9 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 
 	// Return success response
 	c.JSON(http.StatusOK, gin.H{
-		"users": users,
-		"total": total,
-		"limit": limit,
+		"users":  users,
+		"total":  total,
+		"limit":  limit,
 		"offset": offset,
 	})
 }
@@ -310,6 +310,93 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "User deleted successfully",
 	})
+}
+
+// SetupTwoFA handles 2FA setup
+// @Summary Setup 2FA
+// @Description Generate TOTP secret and QR code for 2FA
+// @Tags users
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Success 200 {object} models.TwoFASetupResponse "2FA setup info"
+// @Failure 400 {string} string "Invalid request data"
+// @Router /users/2fa/setup [post]
+func (h *UserHandler) SetupTwoFA(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.logger.Error("User ID not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	secret, otpauth, err := h.userService.SetupTwoFA(userID.(string))
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to setup 2FA")
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.TwoFASetupResponse{Secret: secret, OTPAuth: otpauth})
+}
+
+// VerifyTwoFA handles 2FA verification
+// @Summary Verify 2FA
+// @Description Verify TOTP code and enable 2FA
+// @Tags users
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body models.TwoFAVerifyRequest true "2FA verify request"
+// @Success 200 {object} map[string]string "2FA enabled"
+// @Failure 400 {string} string "Invalid request data or code"
+// @Router /users/2fa/verify [post]
+func (h *UserHandler) VerifyTwoFA(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.logger.Error("User ID not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var req models.TwoFAVerifyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.WithError(err).Error("Failed to decode 2FA verify request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+	if req.Code == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Code is required"})
+		return
+	}
+	if err := h.userService.VerifyTwoFA(userID.(string), req.Code); err != nil {
+		h.logger.WithError(err).Error("Failed to verify 2FA")
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "2FA enabled"})
+}
+
+// DisableTwoFA handles disabling 2FA
+// @Summary Disable 2FA
+// @Description Disable 2FA for the user
+// @Tags users
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]string "2FA disabled"
+// @Failure 400 {string} string "Invalid request data"
+// @Router /users/2fa/disable [post]
+func (h *UserHandler) DisableTwoFA(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.logger.Error("User ID not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	if err := h.userService.DisableTwoFA(userID.(string)); err != nil {
+		h.logger.WithError(err).Error("Failed to disable 2FA")
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "2FA disabled"})
 }
 
 // Helper functions for validation

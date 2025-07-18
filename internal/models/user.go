@@ -10,20 +10,22 @@ import (
 
 // User represents a user in the system
 type User struct {
-	ID              string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	Username        string         `json:"username" gorm:"uniqueIndex;not null"`
-	Email           string         `json:"email" gorm:"uniqueIndex;not null"`
-	Password        string         `json:"-" gorm:"not null"` // "-" means this field won't be included in JSON
-	FirstName       string         `json:"first_name" gorm:"not null"`
-	LastName        string         `json:"last_name" gorm:"not null"`
-	Role            string         `json:"role" gorm:"not null;default:'user'"`
-	IsActive        bool           `json:"is_active" gorm:"not null;default:true"`
-	IsEmailVerified bool           `json:"is_email_verified" gorm:"not null;default:false"` // added
-	TwoFAEnabled    bool           `json:"two_fa_enabled" gorm:"not null;default:false"`    // 2FA enabled
-	TwoFASecret     string         `json:"-" gorm:"not null;default:''"`                    // 2FA secret, omit in JSON
-	CreatedAt       time.Time      `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt       time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
-	DeletedAt       gorm.DeletedAt `json:"-" gorm:"index"`
+	ID                  string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	Username            string         `json:"username" gorm:"uniqueIndex;not null"`
+	Email               string         `json:"email" gorm:"uniqueIndex;not null"`
+	Password            string         `json:"-" gorm:"not null"` // "-" means this field won't be included in JSON
+	FirstName           string         `json:"first_name" gorm:"not null"`
+	LastName            string         `json:"last_name" gorm:"not null"`
+	Role                string         `json:"role" gorm:"not null;default:'user'"`
+	IsActive            bool           `json:"is_active" gorm:"not null;default:true"`
+	IsEmailVerified     bool           `json:"is_email_verified" gorm:"not null;default:false"` // added
+	TwoFAEnabled        bool           `json:"two_fa_enabled" gorm:"not null;default:false"`    // 2FA enabled
+	TwoFASecret         string         `json:"-" gorm:"not null;default:''"`                    // 2FA secret, omit in JSON
+	FailedLoginAttempts int            `json:"failed_login_attempts" gorm:"not null;default:0"` // lockout
+	LockoutUntil        *time.Time     `json:"lockout_until" gorm:"default:null"`               // lockout
+	CreatedAt           time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt           time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt           gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 // RefreshToken represents a refresh token in the system

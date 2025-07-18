@@ -24,10 +24,10 @@ This document outlines the planned features, improvements, and tasks for the Go 
 - [x] **JWT Token Refresh** - Implement refresh token mechanism *(Completed: DB persistence, endpoint, invalidation on logout/password change)*
 - [ ] **Password Reset** - Email-based password reset functionality *(In progress: endpoints, DB, simulated email)*
 - [x] **Email Verification** - Verify user email addresses *(Completed: endpoints, DB, simulated email, registration flow)*
-- [ ] **Two-Factor Authentication (2FA)** - TOTP-based 2FA *(In progress: TOTP, enable/disable, endpoints)*
-- [ ] **OAuth Integration** - Google, GitHub, Microsoft login
-- [ ] **Session Management** - Track and manage user sessions
-- [ ] **Account Lockout** - Prevent brute force attacks
+- [x] **Two-Factor Authentication (2FA)** - TOTP-based 2FA *(Completed: endpoints, TOTP, enable/disable, protected routes)*
+- [x] **OAuth Integration** - Google, GitHub, Microsoft login *(Completed: Google login, endpoints, callback, user creation)*
+- [x] **Session Management** - Track and manage user sessions *(Completed: session tracking, list/revoke endpoints)*
+- [ ] **Account Lockout** - Prevent brute force attacks *(In progress: lockout on failed logins, unlock/cooldown)*
 - [ ] **Password Policy** - Enforce strong password requirements
 
 ### User Management

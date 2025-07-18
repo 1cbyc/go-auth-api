@@ -199,6 +199,9 @@ func setupRouter(authHandler *handlers.AuthHandler, userHandler *handlers.UserHa
 				users.GET("/profile", userHandler.GetProfile)
 				users.PUT("/profile", userHandler.UpdateProfile)
 				users.POST("/change-password", userHandler.ChangePassword)
+				users.POST("/2fa/setup", userHandler.SetupTwoFA) // added
+				users.POST("/2fa/verify", userHandler.VerifyTwoFA) // added
+				users.POST("/2fa/disable", userHandler.DisableTwoFA) // added
 			}
 
 			// Admin routes (admin role required)
