@@ -8,6 +8,7 @@ import (
 
 	"go-auth-api/internal/models"
 	"go-auth-api/internal/services"
+	"go-auth-api/internal/storage"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -17,13 +18,15 @@ import (
 type UserHandler struct {
 	userService *services.UserService
 	logger      *logrus.Logger
+	storage     *storage.Storage // added for file storage
 }
 
 // NewUserHandler creates a new user handler
-func NewUserHandler(userService *services.UserService, logger *logrus.Logger) *UserHandler {
+func NewUserHandler(userService *services.UserService, logger *logrus.Logger, storage *storage.Storage) *UserHandler {
 	return &UserHandler{
 		userService: userService,
 		logger:      logger,
+		storage:     storage, // added
 	}
 }
 
@@ -418,24 +421,26 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
-	file, err := c.FormFile("avatar")
+	file, fileHeader, err := c.Request.FormFile("avatar")
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to get avatar file")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file"})
 		return
 	}
-	filename := "avatars/" + userID.(string) + "_" + file.Filename
-	if err := c.SaveUploadedFile(file, filename); err != nil {
-		h.logger.WithError(err).Error("Failed to save avatar file")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+	defer file.Close()
+	dest := "avatars/" + userID.(string) + "_" + fileHeader.Filename
+	url, err := h.storage.UploadFile(c.Request.Context(), file, fileHeader, dest)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to upload avatar file")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload file"})
 		return
 	}
-	if err := h.userService.UpdateAvatar(userID.(string), "/"+filename); err != nil {
+	if err := h.userService.UpdateAvatar(userID.(string), url); err != nil {
 		h.logger.WithError(err).Error("Failed to update user avatar")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"avatar_url": "/" + filename})
+	c.JSON(http.StatusOK, gin.H{"avatar_url": url})
 }
 
 // GetAvatar serves the user's avatar

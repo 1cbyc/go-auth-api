@@ -10,6 +10,16 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// S3Config holds S3-related configuration
+type S3Config struct {
+	Endpoint  string
+	Bucket    string
+	Region    string
+	AccessKey string
+	SecretKey string
+	UseSSL    bool
+}
+
 // Config holds all configuration for the application
 type Config struct {
 	Server   ServerConfig
@@ -17,6 +27,7 @@ type Config struct {
 	JWT      JWTConfig
 	CORS     CORSConfig
 	Log      LogConfig
+	S3       S3Config // added for file storage
 }
 
 // ServerConfig holds server-related configuration
@@ -106,6 +117,14 @@ func Load() (*Config, error) {
 			Level:  getEnv("LOG_LEVEL", "info"),
 			Format: getEnv("LOG_FORMAT", "text"),
 		},
+		S3: S3Config{
+			Endpoint:  getEnv("S3_ENDPOINT", ""),
+			Bucket:    getEnv("S3_BUCKET", ""),
+			Region:    getEnv("S3_REGION", ""),
+			AccessKey: getEnv("S3_ACCESS_KEY", ""),
+			SecretKey: getEnv("S3_SECRET_KEY", ""),
+			UseSSL:    getEnvAsBool("S3_USE_SSL", false),
+		},
 	}
 
 	return cfg, nil
@@ -140,6 +159,15 @@ func getEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
 func getEnvAsSlice(key string, defaultValue []string) []string {
 	if value := os.Getenv(key); value != "" {
 		return strings.Split(value, ",")
+	}
+	return defaultValue
+}
+
+func getEnvAsBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if boolValue, err := strconv.ParseBool(value); err == nil {
+			return boolValue
+		}
 	}
 	return defaultValue
 }
@@ -194,6 +222,10 @@ func (c *Config) Validate() error {
 
 	if c.JWT.RefreshTokenTTL <= 0 {
 		return fmt.Errorf("JWT refresh token TTL must be positive")
+	}
+
+	if c.S3.Endpoint == "" || c.S3.Bucket == "" || c.S3.Region == "" || c.S3.AccessKey == "" || c.S3.SecretKey == "" {
+		return fmt.Errorf("S3 configuration is incomplete")
 	}
 
 	return nil
