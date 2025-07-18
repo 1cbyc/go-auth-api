@@ -1,15 +1,14 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
 
-	"github.com/1cbyc/go-auth-api/internal/middleware"
-	"github.com/1cbyc/go-auth-api/internal/models"
-	"github.com/1cbyc/go-auth-api/internal/services"
-	"github.com/gorilla/mux"
+	"go-auth-api/internal/models"
+	"go-auth-api/internal/services"
+
+	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
 
@@ -37,29 +36,25 @@ func NewUserHandler(userService *services.UserService, logger *logrus.Logger) *U
 // @Failure 401 {string} string "Unauthorized"
 // @Failure 500 {string} string "Internal server error"
 // @Router /users/profile [get]
-func (h *UserHandler) GetProfile() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Get user from context
-		user, ok := middleware.GetUserFromContext(r.Context())
-		if !ok {
-			h.logger.Error("User not found in context")
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
+func (h *UserHandler) GetProfile(c *gin.Context) {
+	// Get user ID from context (set by auth middleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.logger.Error("User ID not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
 
-		// Get user profile
-		profile, err := h.userService.GetProfile(user.ID)
-		if err != nil {
-			h.logger.WithError(err).Error("Failed to get user profile")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	// Get user profile
+	profile, err := h.userService.GetProfile(userID.(string))
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to get user profile")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-		// Return success response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(profile)
-	})
+	// Return success response
+	c.JSON(http.StatusOK, profile)
 }
 
 // UpdateProfile updates the current user's profile
@@ -75,37 +70,33 @@ func (h *UserHandler) GetProfile() http.Handler {
 // @Failure 401 {string} string "Unauthorized"
 // @Failure 500 {string} string "Internal server error"
 // @Router /users/profile [put]
-func (h *UserHandler) UpdateProfile() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Get user from context
-		user, ok := middleware.GetUserFromContext(r.Context())
-		if !ok {
-			h.logger.Error("User not found in context")
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
+func (h *UserHandler) UpdateProfile(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.logger.Error("User ID not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
 
-		// Parse request body
-		var req models.UpdateUserRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			h.logger.WithError(err).Error("Failed to decode update profile request")
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
+	// Parse request body
+	var req models.UpdateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.WithError(err).Error("Failed to decode update profile request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
 
-		// Update user profile
-		updatedUser, err := h.userService.UpdateProfile(user.ID, req)
-		if err != nil {
-			h.logger.WithError(err).Error("Failed to update user profile")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	// Update user profile
+	updatedUser, err := h.userService.UpdateProfile(userID.(string), req)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to update user profile")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-		// Return success response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(updatedUser)
-	})
+	// Return success response
+	c.JSON(http.StatusOK, updatedUser)
 }
 
 // ChangePassword changes the current user's password
@@ -121,44 +112,40 @@ func (h *UserHandler) UpdateProfile() http.Handler {
 // @Failure 401 {string} string "Unauthorized"
 // @Failure 500 {string} string "Internal server error"
 // @Router /users/change-password [post]
-func (h *UserHandler) ChangePassword() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Get user from context
-		user, ok := middleware.GetUserFromContext(r.Context())
-		if !ok {
-			h.logger.Error("User not found in context")
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
+func (h *UserHandler) ChangePassword(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.logger.Error("User ID not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
 
-		// Parse request body
-		var req models.ChangePasswordRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			h.logger.WithError(err).Error("Failed to decode change password request")
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
+	// Parse request body
+	var req models.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.WithError(err).Error("Failed to decode change password request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
 
-		// Validate request
-		if err := validateChangePasswordRequest(req); err != nil {
-			h.logger.WithError(err).Error("Invalid change password request")
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
+	// Validate request
+	if err := validateChangePasswordRequest(req); err != nil {
+		h.logger.WithError(err).Error("Invalid change password request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-		// Change password
-		if err := h.userService.ChangePassword(user.ID, req); err != nil {
-			h.logger.WithError(err).Error("Failed to change password")
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
+	// Change password
+	if err := h.userService.ChangePassword(userID.(string), req); err != nil {
+		h.logger.WithError(err).Error("Failed to change password")
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-		// Return success response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
-			"message": "Password changed successfully",
-		})
+	// Return success response
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Password changed successfully",
 	})
 }
 
@@ -175,50 +162,46 @@ func (h *UserHandler) ChangePassword() http.Handler {
 // @Failure 403 {string} string "Forbidden - Admin role required"
 // @Failure 500 {string} string "Internal server error"
 // @Router /admin/users [get]
-func (h *UserHandler) ListUsers() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Parse query parameters
-		limitStr := r.URL.Query().Get("limit")
-		offsetStr := r.URL.Query().Get("offset")
+func (h *UserHandler) ListUsers(c *gin.Context) {
+	// Parse query parameters
+	limitStr := c.Query("limit")
+	offsetStr := c.Query("offset")
 
-		limit := 10 // default limit
-		offset := 0 // default offset
+	limit := 10 // default limit
+	offset := 0 // default offset
 
-		if limitStr != "" {
-			if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
-				limit = l
-			}
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
 		}
+	}
 
-		if offsetStr != "" {
-			if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
-				offset = o
-			}
+	if offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+			offset = o
 		}
+	}
 
-		// Get users
-		users, total, err := h.userService.ListUsers(limit, offset)
-		if err != nil {
-			h.logger.WithError(err).Error("Failed to list users")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	// Get users
+	users, total, err := h.userService.ListUsers(limit, offset)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to list users")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-		// Return success response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"users":  users,
-			"total":  total,
-			"limit":  limit,
-			"offset": offset,
-		})
+	// Return success response
+	c.JSON(http.StatusOK, gin.H{
+		"users": users,
+		"total": total,
+		"limit": limit,
+		"offset": offset,
 	})
 }
 
 // GetUser retrieves a specific user by ID (admin only)
 // @Summary Get user by ID
-// @Description Get a specific user by their ID (admin only)
+// @Description Get a specific user's information by ID (admin only)
 // @Tags admin
 // @Security BearerAuth
 // @Produce json
@@ -228,37 +211,31 @@ func (h *UserHandler) ListUsers() http.Handler {
 // @Failure 401 {string} string "Unauthorized"
 // @Failure 403 {string} string "Forbidden - Admin role required"
 // @Failure 404 {string} string "User not found"
+// @Failure 500 {string} string "Internal server error"
 // @Router /admin/users/{id} [get]
-func (h *UserHandler) GetUser() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Get user ID from URL parameters
-		vars := mux.Vars(r)
-		userID := vars["id"]
+func (h *UserHandler) GetUser(c *gin.Context) {
+	// Get user ID from URL parameter
+	userID := c.Param("id")
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})
+		return
+	}
 
-		if userID == "" {
-			h.logger.Error("User ID is required")
-			http.Error(w, "User ID is required", http.StatusBadRequest)
-			return
-		}
+	// Get user
+	user, err := h.userService.GetUser(userID)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to get user")
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
 
-		// Get user
-		user, err := h.userService.GetUser(userID)
-		if err != nil {
-			h.logger.WithError(err).Error("Failed to get user")
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
-		}
-
-		// Return success response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(user)
-	})
+	// Return success response
+	c.JSON(http.StatusOK, user)
 }
 
 // UpdateUser updates a specific user by ID (admin only)
 // @Summary Update user by ID
-// @Description Update a specific user by their ID (admin only)
+// @Description Update a specific user's information by ID (admin only)
 // @Tags admin
 // @Security BearerAuth
 // @Accept json
@@ -272,44 +249,37 @@ func (h *UserHandler) GetUser() http.Handler {
 // @Failure 404 {string} string "User not found"
 // @Failure 500 {string} string "Internal server error"
 // @Router /admin/users/{id} [put]
-func (h *UserHandler) UpdateUser() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Get user ID from URL parameters
-		vars := mux.Vars(r)
-		userID := vars["id"]
+func (h *UserHandler) UpdateUser(c *gin.Context) {
+	// Get user ID from URL parameter
+	userID := c.Param("id")
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})
+		return
+	}
 
-		if userID == "" {
-			h.logger.Error("User ID is required")
-			http.Error(w, "User ID is required", http.StatusBadRequest)
-			return
-		}
+	// Parse request body
+	var req models.UpdateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.WithError(err).Error("Failed to decode update user request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
 
-		// Parse request body
-		var req models.UpdateUserRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			h.logger.WithError(err).Error("Failed to decode update user request")
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
+	// Update user
+	updatedUser, err := h.userService.UpdateProfile(userID, req)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to update user")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-		// Update user
-		updatedUser, err := h.userService.UpdateUser(userID, req)
-		if err != nil {
-			h.logger.WithError(err).Error("Failed to update user")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Return success response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(updatedUser)
-	})
+	// Return success response
+	c.JSON(http.StatusOK, updatedUser)
 }
 
 // DeleteUser deletes a specific user by ID (admin only)
 // @Summary Delete user by ID
-// @Description Delete a specific user by their ID (admin only)
+// @Description Delete a specific user by ID (admin only)
 // @Tags admin
 // @Security BearerAuth
 // @Produce json
@@ -321,31 +291,24 @@ func (h *UserHandler) UpdateUser() http.Handler {
 // @Failure 404 {string} string "User not found"
 // @Failure 500 {string} string "Internal server error"
 // @Router /admin/users/{id} [delete]
-func (h *UserHandler) DeleteUser() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Get user ID from URL parameters
-		vars := mux.Vars(r)
-		userID := vars["id"]
+func (h *UserHandler) DeleteUser(c *gin.Context) {
+	// Get user ID from URL parameter
+	userID := c.Param("id")
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})
+		return
+	}
 
-		if userID == "" {
-			h.logger.Error("User ID is required")
-			http.Error(w, "User ID is required", http.StatusBadRequest)
-			return
-		}
+	// Delete user
+	if err := h.userService.DeleteUser(userID); err != nil {
+		h.logger.WithError(err).Error("Failed to delete user")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-		// Delete user
-		if err := h.userService.DeleteUser(userID); err != nil {
-			h.logger.WithError(err).Error("Failed to delete user")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Return success response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
-			"message": "User deleted successfully",
-		})
+	// Return success response
+	c.JSON(http.StatusOK, gin.H{
+		"message": "User deleted successfully",
 	})
 }
 
@@ -354,11 +317,14 @@ func validateChangePasswordRequest(req models.ChangePasswordRequest) error {
 	if req.CurrentPassword == "" {
 		return errors.New("current password is required")
 	}
+
 	if req.NewPassword == "" {
 		return errors.New("new password is required")
 	}
+
 	if len(req.NewPassword) < 8 {
 		return errors.New("new password must be at least 8 characters long")
 	}
+
 	return nil
 }

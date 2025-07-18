@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/1cbyc/go-auth-api/internal/models"
-	"github.com/1cbyc/go-auth-api/internal/repository"
+	"go-auth-api/internal/models"
+	"go-auth-api/internal/repository"
 )
 
 // UserService handles user-related business logic
@@ -78,8 +78,8 @@ func (s *UserService) ChangePassword(userID string, req models.ChangePasswordReq
 }
 
 // ListUsers retrieves a list of users with pagination (admin only)
-func (s *UserService) ListUsers(limit, offset int) ([]*models.User, int, error) {
-	users, err := s.userRepo.List(limit, offset)
+func (s *UserService) ListUsers(limit, offset int) ([]*models.User, int64, error) {
+	users, err := s.userRepo.List(offset, limit)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list users: %w", err)
 	}

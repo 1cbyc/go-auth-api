@@ -1,13 +1,14 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
 
-	"github.com/1cbyc/go-auth-api/internal/models"
-	"github.com/1cbyc/go-auth-api/internal/services"
+	"go-auth-api/internal/models"
+	"go-auth-api/internal/services"
+
+	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
 
@@ -36,41 +37,37 @@ func NewAuthHandler(authService *services.AuthService, logger *logrus.Logger) *A
 // @Failure 400 {string} string "Invalid request data"
 // @Failure 409 {string} string "Username or email already exists"
 // @Router /auth/register [post]
-func (h *AuthHandler) Register() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Parse request body
-		var req models.CreateUserRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			h.logger.WithError(err).Error("Failed to decode registration request")
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
+func (h *AuthHandler) Register(c *gin.Context) {
+	// Parse request body
+	var req models.CreateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.WithError(err).Error("Failed to decode registration request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
 
-		// Validate request
-		if err := validateCreateUserRequest(req); err != nil {
-			h.logger.WithError(err).Error("Invalid registration request")
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
+	// Validate request
+	if err := validateCreateUserRequest(req); err != nil {
+		h.logger.WithError(err).Error("Invalid registration request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-		// Register user
-		response, err := h.authService.Register(req)
-		if err != nil {
-			h.logger.WithError(err).Error("Failed to register user")
-			http.Error(w, err.Error(), http.StatusConflict)
-			return
-		}
+	// Register user
+	response, err := h.authService.Register(req)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to register user")
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		return
+	}
 
-		// Return success response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(response)
-	})
+	// Return success response
+	c.JSON(http.StatusCreated, response)
 }
 
 // Login handles user login
 // @Summary Login user
-// @Description Authenticate user with username and password
+// @Description Authenticate user with email and password
 // @Tags authentication
 // @Accept json
 // @Produce json
@@ -79,36 +76,32 @@ func (h *AuthHandler) Register() http.Handler {
 // @Failure 400 {string} string "Invalid request data"
 // @Failure 401 {string} string "Invalid credentials"
 // @Router /auth/login [post]
-func (h *AuthHandler) Login() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Parse request body
-		var req models.LoginRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			h.logger.WithError(err).Error("Failed to decode login request")
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
+func (h *AuthHandler) Login(c *gin.Context) {
+	// Parse request body
+	var req models.LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.WithError(err).Error("Failed to decode login request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
 
-		// Validate request
-		if err := validateLoginRequest(req); err != nil {
-			h.logger.WithError(err).Error("Invalid login request")
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
+	// Validate request
+	if err := validateLoginRequest(req); err != nil {
+		h.logger.WithError(err).Error("Invalid login request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-		// Authenticate user
-		response, err := h.authService.Login(req)
-		if err != nil {
-			h.logger.WithError(err).Error("Failed to authenticate user")
-			http.Error(w, err.Error(), http.StatusUnauthorized)
-			return
-		}
+	// Authenticate user
+	response, err := h.authService.Login(req)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to authenticate user")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
 
-		// Return success response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
-	})
+	// Return success response
+	c.JSON(http.StatusOK, response)
 }
 
 // RefreshToken handles token refresh
@@ -122,36 +115,32 @@ func (h *AuthHandler) Login() http.Handler {
 // @Failure 400 {string} string "Invalid request data"
 // @Failure 401 {string} string "Invalid or expired refresh token"
 // @Router /auth/refresh [post]
-func (h *AuthHandler) RefreshToken() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Parse request body
-		var req models.RefreshTokenRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			h.logger.WithError(err).Error("Failed to decode refresh token request")
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	// Parse request body
+	var req models.RefreshTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.WithError(err).Error("Failed to decode refresh token request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
 
-		// Validate request
-		if req.RefreshToken == "" {
-			h.logger.Error("Empty refresh token")
-			http.Error(w, "Refresh token is required", http.StatusBadRequest)
-			return
-		}
+	// Validate request
+	if req.RefreshToken == "" {
+		h.logger.Error("Empty refresh token")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Refresh token is required"})
+		return
+	}
 
-		// Refresh token
-		response, err := h.authService.RefreshToken(req.RefreshToken)
-		if err != nil {
-			h.logger.WithError(err).Error("Failed to refresh token")
-			http.Error(w, err.Error(), http.StatusUnauthorized)
-			return
-		}
+	// Refresh token
+	response, err := h.authService.RefreshToken(req.RefreshToken)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to refresh token")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
 
-		// Return success response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
-	})
+	// Return success response
+	c.JSON(http.StatusOK, response)
 }
 
 // Logout handles user logout
@@ -162,16 +151,12 @@ func (h *AuthHandler) RefreshToken() http.Handler {
 // @Produce json
 // @Success 200 {object} map[string]string "Logout successful"
 // @Router /auth/logout [post]
-func (h *AuthHandler) Logout() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// In a real application, you might want to blacklist the refresh token
-		// For now, we'll just return a success response
+func (h *AuthHandler) Logout(c *gin.Context) {
+	// In a real application, you might want to blacklist the refresh token
+	// For now, we'll just return a success response
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
-			"message": "Successfully logged out",
-		})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Successfully logged out",
 	})
 }
 
@@ -202,15 +187,29 @@ func validateCreateUserRequest(req models.CreateUserRequest) error {
 		return errors.New("password must be at least 8 characters long")
 	}
 
+	if req.FirstName == "" {
+		return errors.New("first_name is required")
+	}
+
+	if req.LastName == "" {
+		return errors.New("last_name is required")
+	}
+
 	return nil
 }
 
 func validateLoginRequest(req models.LoginRequest) error {
-	if req.Username == "" {
-		return errors.New("username is required")
+	if req.Email == "" {
+		return errors.New("email is required")
 	}
+	// Basic email validation
+	if !strings.Contains(req.Email, "@") {
+		return errors.New("invalid email format")
+	}
+
 	if req.Password == "" {
 		return errors.New("password is required")
 	}
+
 	return nil
 }

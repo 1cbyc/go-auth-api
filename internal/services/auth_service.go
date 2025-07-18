@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/1cbyc/go-auth-api/internal/config"
-	"github.com/1cbyc/go-auth-api/internal/models"
-	"github.com/1cbyc/go-auth-api/internal/repository"
+	"go-auth-api/internal/config"
+	"go-auth-api/internal/models"
+	"go-auth-api/internal/repository"
+
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -67,14 +68,14 @@ func (s *AuthService) Register(req models.CreateUserRequest) (*models.AuthRespon
 
 // Login authenticates a user and returns tokens
 func (s *AuthService) Login(req models.LoginRequest) (*models.AuthResponse, error) {
-	// Get user by username
-	user, err := s.userRepo.GetByUsername(req.Username)
+	// Get user by email
+	user, err := s.userRepo.GetByEmail(req.Email)
 	if err != nil {
 		return nil, errors.New("invalid credentials")
 	}
 
 	// Check if user is active
-	if !user.Active {
+	if !user.IsActive {
 		return nil, errors.New("account is deactivated")
 	}
 
@@ -121,7 +122,7 @@ func (s *AuthService) RefreshToken(refreshToken string) (*models.AuthResponse, e
 	}
 
 	// Check if user is active
-	if !user.Active {
+	if !user.IsActive {
 		return nil, errors.New("account is deactivated")
 	}
 
@@ -162,7 +163,7 @@ func (s *AuthService) ValidateToken(tokenString string) (*models.User, error) {
 	}
 
 	// Check if user is active
-	if !user.Active {
+	if !user.IsActive {
 		return nil, errors.New("account is deactivated")
 	}
 
@@ -175,13 +176,13 @@ func (s *AuthService) generateTokens(user *models.User) (string, string, error) 
 
 	// Generate access token
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id":  user.ID,
-		"username": user.Username,
-		"roles":    user.Roles,
-		"type":     "access",
-		"iat":      now.Unix(),
-		"exp":      now.Add(s.config.JWT.AccessTokenTTL).Unix(),
-		"iss":      s.config.JWT.Issuer,
+		"user_id": user.ID,
+		"email":   user.Email,
+		"role":    user.Role,
+		"type":    "access",
+		"iat":     now.Unix(),
+		"exp":     now.Add(s.config.JWT.AccessTokenTTL).Unix(),
+		"iss":     s.config.JWT.Issuer,
 	})
 
 	accessTokenString, err := accessToken.SignedString([]byte(s.config.JWT.Secret))
@@ -209,10 +210,6 @@ func (s *AuthService) generateTokens(user *models.User) (string, string, error) 
 // parseToken parses and validates a JWT token
 func (s *AuthService) parseToken(tokenString string) (*TokenClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
-		// Validate signing method
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
 		return []byte(s.config.JWT.Secret), nil
 	})
 
@@ -224,14 +221,14 @@ func (s *AuthService) parseToken(tokenString string) (*TokenClaims, error) {
 		return claims, nil
 	}
 
-	return nil, errors.New("invalid token")
+	return nil, jwt.ErrSignatureInvalid
 }
 
 // TokenClaims represents the claims in a JWT token
 type TokenClaims struct {
-	UserID   string   `json:"user_id"`
-	Username string   `json:"username,omitempty"`
-	Roles    []string `json:"roles,omitempty"`
-	Type     string   `json:"type"`
+	UserID string `json:"user_id"`
+	Email  string `json:"email,omitempty"`
+	Role   string `json:"role,omitempty"`
+	Type   string `json:"type"`
 	jwt.RegisteredClaims
 }
