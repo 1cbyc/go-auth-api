@@ -66,7 +66,7 @@ go-auth-api/
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/1cbyc/go-auth-api.git
 cd go-auth-api
 
 # Run the automated setup
