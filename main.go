@@ -22,51 +22,27 @@ import (
 	"go-auth-api/internal/services"
 	"go-auth-api/internal/websocket"
 
+	_ "go-auth-api/docs"
+
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"github.com/swaggo/gin-swagger"
-	"github.com/swaggo/files"
-	_ "go-auth-api/docs"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// @title Go Auth API
-// @version 1.0
-// @description A sophisticated authentication and authorization API
-// @termsOfService http://swagger.io/terms/
-
-// @contact.name API Support
-// @contact.url http://www.swagger.io/support
-// @contact.email support@swagger.io
-
-// @license.name Apache 2.0
-// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
-
-// @host localhost:8080
-// @BasePath /api/v1
-
-// @securityDefinitions.apikey BearerAuth
-// @in header
-// @name Authorization
-// @description Type "Bearer" followed by a space and JWT token.
-
 func main() {
-	// Load configuration
 	cfg := config.Load()
 
-	// Initialize Redis client
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     cfg.Redis.Address,
 		Password: cfg.Redis.Password,
 		DB:       cfg.Redis.DB,
 	})
 
-	// Test Redis connection
 	ctx := context.Background()
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		log.Fatalf("Failed to connect to Redis: %v", err)
 	}
 
-	// Initialize logger
 	logConfig := logging.DefaultLogConfig()
 	logConfig.Development = cfg.Environment == "development"
 	logger, err := logging.NewLogger(logConfig)
@@ -75,35 +51,28 @@ func main() {
 	}
 	defer logger.Sync()
 
-	// Initialize database
 	db, err := database.Connect(cfg.Database)
 	if err != nil {
 		logger.Fatal("Failed to connect to database", err)
 	}
 
-	// Initialize repositories
 	userRepo := database.NewGORMUserRepository(db)
 	refreshTokenRepo := database.NewGORMRefreshTokenRepository(db)
 	passwordResetRepo := database.NewGORMPasswordResetTokenRepository(db)
 	emailVerificationRepo := database.NewGORMEmailVerificationTokenRepository(db)
 	userActivityRepo := database.NewGORMUserActivityRepository(db)
 
-	// Initialize services
 	authService := services.NewAuthService(userRepo, refreshTokenRepo, passwordResetRepo, emailVerificationRepo, cfg.JWT)
 	userService := services.NewUserService(userRepo, userActivityRepo, cfg)
 
-	// Initialize cache
 	cacheService := cache.NewCache(redisClient)
 
-	// Initialize monitoring
 	metrics := monitoring.NewMetrics()
 	healthChecker := monitoring.NewHealthChecker(db, redisClient)
 
-	// Initialize security
 	securityConfig := security.DefaultSecurityConfig()
 	inputValidator := security.NewInputValidator()
 
-	// Initialize notification service
 	notificationConfig := notification.NotificationConfig{
 		Email: notification.EmailConfig{
 			SMTPHost:     cfg.Email.SMTPHost,
@@ -114,49 +83,41 @@ func main() {
 			FromName:     cfg.Email.FromName,
 		},
 		SMS: notification.SMSConfig{
-			Provider:  "twilio", // Example
+			Provider:  "twilio",
 			APIKey:    cfg.SMS.APIKey,
 			APISecret: cfg.SMS.APISecret,
 			From:      cfg.SMS.From,
 		},
 		Push: notification.PushConfig{
-			Provider:  "firebase", // Example
+			Provider:  "firebase",
 			APIKey:    cfg.Push.APIKey,
 			APISecret: cfg.Push.APISecret,
 		},
 	}
 	notificationService := notification.NewNotificationService(notificationConfig)
 
-	// Initialize job queue
 	jobQueue := queue.NewJobQueue(redisClient)
 	defaultQueue := jobQueue.NewQueue("default")
 	jobProcessor := queue.NewJobProcessor(defaultQueue, 5)
 
-	// Register job handlers
 	jobProcessor.RegisterHandler("email", func(ctx context.Context, job *queue.Job) error {
-		// Handle email job
 		return nil
 	})
 	jobProcessor.RegisterHandler("sms", func(ctx context.Context, job *queue.Job) error {
-		// Handle SMS job
 		return nil
 	})
 
-	// Start job processor
 	jobProcessor.Start(ctx)
 
-	// Initialize WebSocket hub
 	wsHub := websocket.NewHub()
 	go wsHub.Run(ctx)
 
-	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authService, userService, notificationService, jobQueue, logger)
 	userHandler := handlers.NewUserHandler(userService, cacheService, logger)
 	notificationHandler := notification.NewNotificationHandler(notificationService)
 	wsHandler := websocket.NewWebSocketHandler(wsHub)
 	jobQueueHandler := queue.NewJobQueueHandler(jobQueue)
 
-	// Initialize API gateway
 	apiGateway := gateway.NewGateway()
 	apiGateway.AddRoute(gateway.Route{
 		Path:        "/api/v1/external",
@@ -166,40 +127,29 @@ func main() {
 		Timeout:     30 * time.Second,
 	})
 
-	// Set up Gin router
 	router := gin.New()
 
-	// Security middleware
 	router.Use(security.SecurityMiddleware(securityConfig))
 	router.Use(security.XSSProtectionMiddleware())
 	router.Use(security.SQLInjectionProtectionMiddleware())
 	router.Use(security.TrustedProxyMiddleware(securityConfig.TrustedProxies))
 
-	// Logging middleware
 	router.Use(logger.LoggingMiddleware())
 
-	// Metrics middleware
 	router.Use(metrics.MetricsMiddleware())
 
-	// Rate limiting middleware
 	router.Use(middleware.RateLimiter(redisClient))
 
-	// CORS middleware
 	router.Use(middleware.CORSMiddleware(cfg.CORS))
 
-	// Request ID middleware
 	router.Use(middleware.RequestIDMiddleware())
 
-	// Setup monitoring endpoints
 	monitoring.SetupMonitoring(router, metrics, healthChecker)
 
-	// Setup API gateway routes
 	apiGateway.SetupRoutes(router)
 
-	// API routes
 	api := router.Group("/api/v1")
 	{
-		// Auth routes
 		auth := api.Group("/auth")
 		{
 			auth.POST("/register", authHandler.Register)
@@ -219,7 +169,6 @@ func main() {
 			auth.DELETE("/sessions/:session_id", middleware.AuthMiddleware(cfg.JWT.Secret), authHandler.RevokeSession)
 		}
 
-		// User routes
 		users := api.Group("/users")
 		users.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 		{
@@ -233,7 +182,6 @@ func main() {
 			users.GET("/activity", userHandler.GetActivityLog)
 		}
 
-		// Admin routes
 		admin := api.Group("/admin")
 		admin.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 		admin.Use(middleware.RoleMiddleware("admin"))
@@ -244,7 +192,6 @@ func main() {
 			admin.POST("/users/:user_id/unlock", userHandler.UnlockAccount)
 		}
 
-		// Notification routes
 		notifications := api.Group("/notifications")
 		notifications.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 		{
@@ -252,7 +199,6 @@ func main() {
 			notifications.GET("/status/:id", notificationHandler.GetNotificationStatus)
 		}
 
-		// WebSocket routes
 		ws := api.Group("/ws")
 		ws.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 		{
@@ -262,7 +208,6 @@ func main() {
 			ws.POST("/broadcast", wsHandler.BroadcastMessage)
 		}
 
-		// Job queue routes
 		queue := api.Group("/queue")
 		queue.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 		queue.Use(middleware.RoleMiddleware("admin"))
@@ -273,10 +218,8 @@ func main() {
 		}
 	}
 
-	// Swagger documentation
 	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
@@ -291,19 +234,15 @@ func main() {
 	<-quit
 	logger.Info("Shutting down server...")
 
-	// Graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Stop job processor
 	jobProcessor.Stop()
 
-	// Close Redis connection
 	if err := redisClient.Close(); err != nil {
 		logger.Error("Error closing Redis connection", err)
 	}
 
-	// Close database connection
 	sqlDB, err := db.DB()
 	if err == nil {
 		if err := sqlDB.Close(); err != nil {

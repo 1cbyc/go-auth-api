@@ -9,22 +9,21 @@ import (
 type User struct {
 	Username string
 	Password string
-	Roles []string
+	Roles    []string
 }
 
-//Dummy Users . Will connect real db soon
 var users = map[string]User{
-	"admin" : User{Username: "Mrinal", Password: "adminpass", Roles: []string{"admin", "user"}},
-	"user1" : User{Username: "Test1", Password: "user1", Roles: []string{"user"}},
-	"user2" : User{Username: "Test2", Password: "user2", Roles: []string{"user"}},
-	"user3" : User{Username: "Test3", Password: "user3", Roles: []string{"user"}},
+	"admin": User{Username: "Mrinal", Password: "adminpass", Roles: []string{"admin", "user"}},
+	"user1": User{Username: "Test1", Password: "user1", Roles: []string{"user"}},
+	"user2": User{Username: "Test2", Password: "user2", Roles: []string{"user"}},
+	"user3": User{Username: "Test3", Password: "user3", Roles: []string{"user"}},
 }
 
-func roleMiddleware(allowedRoles ...string) func(http.Handler) http.Handler{
-	return func(next http.Handler) http.Handler{
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){
+func roleMiddleware(allowedRoles ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			username := getUsernameFromContext(r.Context())
-			
+
 			user, found := users[username]
 
 			if !found {
@@ -45,7 +44,7 @@ func roleMiddleware(allowedRoles ...string) func(http.Handler) http.Handler{
 				}
 			}
 
-			//Log Role Functionality
+			
 
 			if roleMatched {
 				fmt.Printf("Role check passed for user %s with roles %v\n", username, user.Roles)
@@ -68,12 +67,12 @@ func roleMiddleware(allowedRoles ...string) func(http.Handler) http.Handler{
 	}
 }
 
-func getPreCheckFunc(username string) func() { 
-	// defining custom post check logic based on the user
+func getPreCheckFunc(username string) func() {
+	
 	if username == "admin" {
 		return func() {
 			fmt.Println("Execute admin post-check logic")
-		} 
+		}
 	}
 	return nil
 }
@@ -82,13 +81,13 @@ func getPostCheckFunc(username string) func() {
 	if username == "admin" {
 		return func() {
 			fmt.Println("Execute admin post-check logic")
-		} 
+		}
 	}
 	return nil
 }
 
 func usernameMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, _ := store.Get(r, "session-name")
 		username, ok := session.Values["username"].(string)
 		if !ok {
@@ -109,6 +108,6 @@ func getUsernameFromContext(ctx context.Context) string {
 	return username
 }
 
-//Key for username
 type contextKey string
+
 const keyUsername contextKey = "username"

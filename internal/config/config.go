@@ -10,7 +10,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// S3Config holds S3-related configuration
 type S3Config struct {
 	Endpoint  string
 	Bucket    string
@@ -20,7 +19,6 @@ type S3Config struct {
 	UseSSL    bool
 }
 
-// Config holds all configuration for the application
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
@@ -30,7 +28,6 @@ type Config struct {
 	S3       S3Config // added for file storage
 }
 
-// ServerConfig holds server-related configuration
 type ServerConfig struct {
 	Port         int
 	ReadTimeout  time.Duration
@@ -38,8 +35,6 @@ type ServerConfig struct {
 	IdleTimeout  time.Duration
 }
 
-// DatabaseConfig holds database-related configuration
-// Connection pooling: MaxOpenConns, MaxIdleConns, ConnMaxLifetime
 type DatabaseConfig struct {
 	Driver          string
 	Host            string
@@ -53,7 +48,6 @@ type DatabaseConfig struct {
 	ConnMaxLifetime time.Duration
 }
 
-// JWTConfig holds JWT-related configuration
 type JWTConfig struct {
 	Secret          string
 	AccessTokenTTL  time.Duration
@@ -61,7 +55,6 @@ type JWTConfig struct {
 	Issuer          string
 }
 
-// CORSConfig holds CORS-related configuration
 type CORSConfig struct {
 	AllowedOrigins []string
 	AllowedMethods []string
@@ -69,17 +62,13 @@ type CORSConfig struct {
 	MaxAge         time.Duration
 }
 
-// LogConfig holds logging-related configuration
 type LogConfig struct {
 	Level  string
 	Format string
 }
 
-// Load loads configuration from environment variables
 func Load() (*Config, error) {
-	// Load .env file if it exists
 	if err := godotenv.Load(); err != nil {
-		// It's okay if .env doesn't exist
 	}
 
 	cfg := &Config{
@@ -130,7 +119,6 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// Helper functions
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
@@ -172,7 +160,6 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 	return defaultValue
 }
 
-// GetDSN returns the database connection string
 func (c *DatabaseConfig) GetDSN() string {
 	switch c.Driver {
 	case "postgres":
@@ -186,7 +173,6 @@ func (c *DatabaseConfig) GetDSN() string {
 	}
 }
 
-// Validate validates the configuration
 func (c *Config) Validate() error {
 	if c.Server.Port <= 0 {
 		return fmt.Errorf("invalid server port: %d", c.Server.Port)

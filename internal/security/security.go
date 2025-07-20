@@ -12,7 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// SecurityConfig represents security configuration
 type SecurityConfig struct {
 	EnableCORS            bool
 	AllowedOrigins        []string
@@ -23,7 +22,6 @@ type SecurityConfig struct {
 	TrustedProxies        []string
 }
 
-// DefaultSecurityConfig returns default security configuration
 func DefaultSecurityConfig() SecurityConfig {
 	return SecurityConfig{
 		EnableCORS:            true,
@@ -36,20 +34,16 @@ func DefaultSecurityConfig() SecurityConfig {
 	}
 }
 
-// SecurityMiddleware provides security middleware
 func SecurityMiddleware(config SecurityConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Security headers
 		if config.EnableSecurityHeaders {
 			setSecurityHeaders(c)
 		}
 
-		// CORS
 		if config.EnableCORS {
 			setupCORS(c, config.AllowedOrigins)
 		}
 
-		// CSRF protection
 		if config.EnableCSRF && c.Request.Method != "GET" && c.Request.Method != "HEAD" && c.Request.Method != "OPTIONS" {
 			if !validateCSRFToken(c, config.CSRFSecret) {
 				c.JSON(http.StatusForbidden, gin.H{"error": "CSRF token validation failed"})
@@ -62,35 +56,25 @@ func SecurityMiddleware(config SecurityConfig) gin.HandlerFunc {
 	}
 }
 
-// setSecurityHeaders sets security-related HTTP headers
 func setSecurityHeaders(c *gin.Context) {
-	// Prevent clickjacking
 	c.Header("X-Frame-Options", "DENY")
 
-	// Prevent MIME type sniffing
 	c.Header("X-Content-Type-Options", "nosniff")
 
-	// Enable XSS protection
 	c.Header("X-XSS-Protection", "1; mode=block")
 
-	// Strict transport security
 	c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 
-	// Content security policy
 	c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; frame-ancestors 'none';")
 
-	// Referrer policy
 	c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 
-	// Permissions policy
 	c.Header("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
 }
 
-// setupCORS sets up CORS headers
 func setupCORS(c *gin.Context, allowedOrigins []string) {
 	origin := c.Request.Header.Get("Origin")
 
-	// Check if origin is allowed
 	allowed := false
 	for _, allowedOrigin := range allowedOrigins {
 		if origin == allowedOrigin {
@@ -106,14 +90,12 @@ func setupCORS(c *gin.Context, allowedOrigins []string) {
 		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-CSRF-Token")
 	}
 
-	// Handle preflight requests
 	if c.Request.Method == "OPTIONS" {
 		c.AbortWithStatus(http.StatusNoContent)
 		return
 	}
 }
 
-// validateCSRFToken validates CSRF token
 func validateCSRFToken(c *gin.Context, secret string) bool {
 	token := c.GetHeader("X-CSRF-Token")
 	if token == "" {
@@ -124,19 +106,15 @@ func validateCSRFToken(c *gin.Context, secret string) bool {
 		return false
 	}
 
-	// In a real implementation, you would validate the token against the secret
-	// For now, we'll just check if it's not empty
 	return len(token) > 0
 }
 
-// InputValidator represents an input validation system
 type InputValidator struct {
 	emailRegex    *regexp.Regexp
 	passwordRegex *regexp.Regexp
 	usernameRegex *regexp.Regexp
 }
 
-// NewInputValidator creates a new input validator
 func NewInputValidator() *InputValidator {
 	return &InputValidator{
 		emailRegex:    regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`),
@@ -145,7 +123,6 @@ func NewInputValidator() *InputValidator {
 	}
 }
 
-// ValidateEmail validates email format
 func (v *InputValidator) ValidateEmail(email string) error {
 	if email == "" {
 		return fmt.Errorf("email is required")
@@ -155,7 +132,6 @@ func (v *InputValidator) ValidateEmail(email string) error {
 		return fmt.Errorf("invalid email format")
 	}
 
-	// Check for common XSS patterns
 	if strings.Contains(email, "<script>") || strings.Contains(email, "javascript:") {
 		return fmt.Errorf("email contains invalid characters")
 	}
@@ -163,7 +139,6 @@ func (v *InputValidator) ValidateEmail(email string) error {
 	return nil
 }
 
-// ValidatePassword validates password strength
 func (v *InputValidator) ValidatePassword(password string) error {
 	if password == "" {
 		return fmt.Errorf("password is required")
@@ -180,7 +155,6 @@ func (v *InputValidator) ValidatePassword(password string) error {
 	return nil
 }
 
-// ValidateUsername validates username format
 func (v *InputValidator) ValidateUsername(username string) error {
 	if username == "" {
 		return fmt.Errorf("username is required")
@@ -193,35 +167,26 @@ func (v *InputValidator) ValidateUsername(username string) error {
 	return nil
 }
 
-// SanitizeInput sanitizes user input to prevent XSS
 func (v *InputValidator) SanitizeInput(input string) string {
-	// Remove script tags
 	input = regexp.MustCompile(`<script[^>]*>.*?</script>`).ReplaceAllString(input, "")
 
-	// Remove javascript: protocol
 	input = regexp.MustCompile(`javascript:`).ReplaceAllString(input, "")
 
-	// Remove on* attributes
 	input = regexp.MustCompile(`on\w+\s*=`).ReplaceAllString(input, "")
 
-	// Remove iframe tags
 	input = regexp.MustCompile(`<iframe[^>]*>.*?</iframe>`).ReplaceAllString(input, "")
 
-	// Remove object tags
 	input = regexp.MustCompile(`<object[^>]*>.*?</object>`).ReplaceAllString(input, "")
 
-	// Remove embed tags
 	input = regexp.MustCompile(`<embed[^>]*>`).ReplaceAllString(input, "")
 
 	return strings.TrimSpace(input)
 }
 
-// XSSProtectionMiddleware provides XSS protection
 func XSSProtectionMiddleware() gin.HandlerFunc {
 	validator := NewInputValidator()
 
 	return func(c *gin.Context) {
-		// Sanitize query parameters
 		for key, values := range c.Request.URL.Query() {
 			for i, value := range values {
 				values[i] = validator.SanitizeInput(value)
@@ -229,7 +194,6 @@ func XSSProtectionMiddleware() gin.HandlerFunc {
 			c.Request.URL.Query()[key] = values
 		}
 
-		// Sanitize form data
 		if c.Request.Method == "POST" || c.Request.Method == "PUT" {
 			if err := c.Request.ParseForm(); err == nil {
 				for key, values := range c.Request.PostForm {
@@ -245,9 +209,7 @@ func XSSProtectionMiddleware() gin.HandlerFunc {
 	}
 }
 
-// SQLInjectionProtectionMiddleware provides SQL injection protection
 func SQLInjectionProtectionMiddleware() gin.HandlerFunc {
-	// Common SQL injection patterns
 	sqlPatterns := []*regexp.Regexp{
 		regexp.MustCompile(`(?i)(union|select|insert|update|delete|drop|create|alter|exec|execute)`),
 		regexp.MustCompile(`(?i)(--|/\*|\*/|xp_|sp_)`),
@@ -256,7 +218,6 @@ func SQLInjectionProtectionMiddleware() gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
-		// Check query parameters
 		for _, values := range c.Request.URL.Query() {
 			for _, value := range values {
 				for _, pattern := range sqlPatterns {
@@ -269,7 +230,6 @@ func SQLInjectionProtectionMiddleware() gin.HandlerFunc {
 			}
 		}
 
-		// Check form data
 		if c.Request.Method == "POST" || c.Request.Method == "PUT" {
 			if err := c.Request.ParseForm(); err == nil {
 				for _, values := range c.Request.PostForm {
@@ -290,22 +250,18 @@ func SQLInjectionProtectionMiddleware() gin.HandlerFunc {
 	}
 }
 
-// generateRandomSecret generates a random secret
 func generateRandomSecret(length int) string {
 	bytes := make([]byte, length)
 	rand.Read(bytes)
 	return base64.URLEncoding.EncodeToString(bytes)
 }
 
-// TrustedProxyMiddleware handles trusted proxy configuration
 func TrustedProxyMiddleware(trustedProxies []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		clientIP := c.ClientIP()
 
-		// Check if client IP is from a trusted proxy
 		for _, proxy := range trustedProxies {
 			if clientIP == proxy {
-				// Get real IP from X-Forwarded-For header
 				if forwardedFor := c.GetHeader("X-Forwarded-For"); forwardedFor != "" {
 					ips := strings.Split(forwardedFor, ",")
 					if len(ips) > 0 {
@@ -320,12 +276,10 @@ func TrustedProxyMiddleware(trustedProxies []string) gin.HandlerFunc {
 	}
 }
 
-// SecurityAuditor represents a security audit system
 type SecurityAuditor struct {
 	auditLog chan SecurityEvent
 }
 
-// SecurityEvent represents a security event
 type SecurityEvent struct {
 	Timestamp   time.Time `json:"timestamp"`
 	EventType   string    `json:"event_type"`
@@ -336,28 +290,22 @@ type SecurityEvent struct {
 	Severity    string    `json:"severity"`
 }
 
-// NewSecurityAuditor creates a new security auditor
 func NewSecurityAuditor() *SecurityAuditor {
 	auditor := &SecurityAuditor{
 		auditLog: make(chan SecurityEvent, 100),
 	}
 
-	// Start audit log processor
 	go auditor.processAuditLog()
 
 	return auditor
 }
 
-// LogSecurityEvent logs a security event
 func (sa *SecurityAuditor) LogSecurityEvent(event SecurityEvent) {
 	sa.auditLog <- event
 }
 
-// processAuditLog processes security audit events
 func (sa *SecurityAuditor) processAuditLog() {
 	for event := range sa.auditLog {
-		// In a real implementation, you would log to a secure audit log
-		// For now, we'll just print to console
 		fmt.Printf("SECURITY EVENT: %s - %s - %s - %s\n",
 			event.Timestamp.Format(time.RFC3339),
 			event.EventType,
@@ -366,14 +314,11 @@ func (sa *SecurityAuditor) processAuditLog() {
 	}
 }
 
-// SecurityAuditMiddleware provides security audit middleware
 func SecurityAuditMiddleware(auditor *SecurityAuditor) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Log suspicious activities
 		userAgent := c.Request.UserAgent()
 		ipAddress := c.ClientIP()
 
-		// Check for suspicious user agents
 		suspiciousPatterns := []string{
 			"sqlmap", "nikto", "nmap", "wget", "curl",
 			"python", "perl", "ruby", "php",
@@ -393,8 +338,6 @@ func SecurityAuditMiddleware(auditor *SecurityAuditor) gin.HandlerFunc {
 			}
 		}
 
-		// Check for rapid requests (potential DoS)
-		// This is a simplified check - in production, use proper rate limiting
 
 		c.Next()
 	}

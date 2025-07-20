@@ -11,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// CORS middleware for Gin
 func CORS(cfg *config.Config) gin.HandlerFunc {
 	return gin.HandlerFunc(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
@@ -29,7 +28,6 @@ func CORS(cfg *config.Config) gin.HandlerFunc {
 	})
 }
 
-// RequestLogger middleware for Gin
 func RequestLogger(logger *logrus.Logger) gin.HandlerFunc {
 	return gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
 		logger.WithFields(logrus.Fields{
@@ -44,7 +42,6 @@ func RequestLogger(logger *logrus.Logger) gin.HandlerFunc {
 	})
 }
 
-// RequestID middleware for Gin
 func RequestID() gin.HandlerFunc {
 	return gin.HandlerFunc(func(c *gin.Context) {
 		requestID := c.GetHeader("X-Request-ID")
@@ -57,17 +54,13 @@ func RequestID() gin.HandlerFunc {
 	})
 }
 
-// RateLimit middleware for Gin (simple implementation)
 func RateLimit(requestsPerMinute int) gin.HandlerFunc {
-	// This is a simple in-memory rate limiter
-	// In production, you'd want to use Redis or a similar distributed store
 	clients := make(map[string][]time.Time)
 
 	return gin.HandlerFunc(func(c *gin.Context) {
 		clientIP := c.ClientIP()
 		now := time.Now()
 
-		// Clean old requests
 		if times, exists := clients[clientIP]; exists {
 			var validTimes []time.Time
 			for _, t := range times {
@@ -78,14 +71,12 @@ func RateLimit(requestsPerMinute int) gin.HandlerFunc {
 			clients[clientIP] = validTimes
 		}
 
-		// Check rate limit
 		if len(clients[clientIP]) >= requestsPerMinute {
 			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded"})
 			c.Abort()
 			return
 		}
 
-		// Add current request
 		clients[clientIP] = append(clients[clientIP], now)
 		c.Next()
 	})

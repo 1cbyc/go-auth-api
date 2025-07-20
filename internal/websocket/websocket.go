@@ -13,7 +13,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Message represents a WebSocket message
 type Message struct {
 	Type      string                 `json:"type"`
 	Data      map[string]interface{} `json:"data"`
@@ -22,7 +21,6 @@ type Message struct {
 	RoomID    string                 `json:"room_id,omitempty"`
 }
 
-// Connection represents a WebSocket connection
 type Connection struct {
 	ID     string
 	UserID string
@@ -33,7 +31,6 @@ type Connection struct {
 	mu     sync.Mutex
 }
 
-// Hub represents a WebSocket hub
 type Hub struct {
 	connections map[string]*Connection
 	rooms       map[string]map[string]*Connection
@@ -43,7 +40,6 @@ type Hub struct {
 	mu          sync.RWMutex
 }
 
-// NewHub creates a new WebSocket hub
 func NewHub() *Hub {
 	return &Hub{
 		connections: make(map[string]*Connection),
@@ -54,7 +50,6 @@ func NewHub() *Hub {
 	}
 }
 
-// Run starts the hub
 func (h *Hub) Run(ctx context.Context) {
 	for {
 		select {
@@ -69,7 +64,6 @@ func (h *Hub) Run(ctx context.Context) {
 			}
 			h.mu.Unlock()
 
-			// Send welcome message
 			welcomeMsg := &Message{
 				Type:      "welcome",
 				Data:      map[string]interface{}{"message": "Connected to WebSocket server"},
@@ -99,7 +93,6 @@ func (h *Hub) Run(ctx context.Context) {
 	}
 }
 
-// broadcastMessage broadcasts a message to all connections or to a specific room
 func (h *Hub) broadcastMessage(message *Message) {
 	data, err := json.Marshal(message)
 	if err != nil {
@@ -111,7 +104,6 @@ func (h *Hub) broadcastMessage(message *Message) {
 	defer h.mu.RUnlock()
 
 	if message.RoomID != "" {
-		// Broadcast to room
 		if room, exists := h.rooms[message.RoomID]; exists {
 			for _, conn := range room {
 				select {
@@ -123,7 +115,6 @@ func (h *Hub) broadcastMessage(message *Message) {
 			}
 		}
 	} else {
-		// Broadcast to all connections
 		for _, conn := range h.connections {
 			select {
 			case conn.Send <- data:
@@ -135,7 +126,6 @@ func (h *Hub) broadcastMessage(message *Message) {
 	}
 }
 
-// SendMessage sends a message to a specific connection
 func (c *Connection) SendMessage(message *Message) error {
 	data, err := json.Marshal(message)
 	if err != nil {
@@ -153,7 +143,6 @@ func (c *Connection) SendMessage(message *Message) error {
 	}
 }
 
-// readPump reads messages from the WebSocket connection
 func (c *Connection) readPump() {
 	defer func() {
 		c.Hub.unregister <- c
@@ -176,24 +165,20 @@ func (c *Connection) readPump() {
 			break
 		}
 
-		// Parse message
 		var msg Message
 		if err := json.Unmarshal(message, &msg); err != nil {
 			log.Printf("Error unmarshaling message: %v", err)
 			continue
 		}
 
-		// Add metadata
 		msg.Timestamp = time.Now()
 		msg.UserID = c.UserID
 		msg.RoomID = c.RoomID
 
-		// Handle message based on type
 		c.handleMessage(&msg)
 	}
 }
 
-// writePump writes messages to the WebSocket connection
 func (c *Connection) writePump() {
 	ticker := time.NewTicker(54 * time.Second)
 	defer func() {
@@ -228,7 +213,6 @@ func (c *Connection) writePump() {
 	}
 }
 
-// handleMessage handles incoming messages
 func (c *Connection) handleMessage(message *Message) {
 	switch message.Type {
 	case "join_room":
@@ -240,17 +224,14 @@ func (c *Connection) handleMessage(message *Message) {
 	case "private_message":
 		c.sendPrivateMessage(message)
 	default:
-		// Echo back unknown message types
 		c.SendMessage(message)
 	}
 }
 
-// joinRoom joins a WebSocket room
 func (c *Connection) joinRoom(roomID string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Leave current room if any
 	if c.RoomID != "" {
 		c.Hub.mu.Lock()
 		if room, exists := c.Hub.rooms[c.RoomID]; exists {
@@ -262,7 +243,6 @@ func (c *Connection) joinRoom(roomID string) {
 		c.Hub.mu.Unlock()
 	}
 
-	// Join new room
 	c.RoomID = roomID
 	c.Hub.mu.Lock()
 	if c.Hub.rooms[roomID] == nil {
@@ -271,7 +251,6 @@ func (c *Connection) joinRoom(roomID string) {
 	c.Hub.rooms[roomID][c.ID] = c
 	c.Hub.mu.Unlock()
 
-	// Send confirmation
 	response := &Message{
 		Type: "room_joined",
 		Data: map[string]interface{}{
@@ -283,7 +262,6 @@ func (c *Connection) joinRoom(roomID string) {
 	c.SendMessage(response)
 }
 
-// leaveRoom leaves the current WebSocket room
 func (c *Connection) leaveRoom() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -304,7 +282,6 @@ func (c *Connection) leaveRoom() {
 	}
 	c.Hub.mu.Unlock()
 
-	// Send confirmation
 	response := &Message{
 		Type: "room_left",
 		Data: map[string]interface{}{
@@ -316,7 +293,6 @@ func (c *Connection) leaveRoom() {
 	c.SendMessage(response)
 }
 
-// broadcastToRoom broadcasts a message to the current room
 func (c *Connection) broadcastToRoom(message *Message) {
 	if c.RoomID == "" {
 		response := &Message{
@@ -334,7 +310,6 @@ func (c *Connection) broadcastToRoom(message *Message) {
 	c.Hub.broadcast <- message
 }
 
-// sendPrivateMessage sends a private message to a specific user
 func (c *Connection) sendPrivateMessage(message *Message) {
 	targetUserID, ok := message.Data["target_user_id"].(string)
 	if !ok {
@@ -365,7 +340,6 @@ func (c *Connection) sendPrivateMessage(message *Message) {
 		return
 	}
 
-	// Send to target user
 	privateMsg := &Message{
 		Type: "private_message",
 		Data: map[string]interface{}{
@@ -376,7 +350,6 @@ func (c *Connection) sendPrivateMessage(message *Message) {
 	}
 	targetConn.SendMessage(privateMsg)
 
-	// Send confirmation to sender
 	response := &Message{
 		Type: "message_sent",
 		Data: map[string]interface{}{
@@ -388,13 +361,11 @@ func (c *Connection) sendPrivateMessage(message *Message) {
 	c.SendMessage(response)
 }
 
-// WebSocketHandler handles WebSocket connections
 type WebSocketHandler struct {
 	hub      *Hub
 	upgrader websocket.Upgrader
 }
 
-// NewWebSocketHandler creates a new WebSocket handler
 func NewWebSocketHandler(hub *Hub) *WebSocketHandler {
 	return &WebSocketHandler{
 		hub: hub,
@@ -406,23 +377,19 @@ func NewWebSocketHandler(hub *Hub) *WebSocketHandler {
 	}
 }
 
-// HandleWebSocket handles WebSocket upgrade requests
 func (wh *WebSocketHandler) HandleWebSocket(c *gin.Context) {
-	// Get user ID from context (set by auth middleware)
 	userID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
 		return
 	}
 
-	// Upgrade HTTP connection to WebSocket
 	conn, err := wh.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Printf("WebSocket upgrade failed: %v", err)
 		return
 	}
 
-	// Create connection
 	connection := &Connection{
 		ID:     userID.(string),
 		UserID: userID.(string),
@@ -431,15 +398,12 @@ func (wh *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 		Hub:    wh.hub,
 	}
 
-	// Register connection
 	wh.hub.register <- connection
 
-	// Start goroutines for reading and writing
 	go connection.writePump()
 	go connection.readPump()
 }
 
-// GetConnectionCount returns the number of active connections
 func (wh *WebSocketHandler) GetConnectionCount(c *gin.Context) {
 	wh.hub.mu.RLock()
 	count := len(wh.hub.connections)
@@ -450,7 +414,6 @@ func (wh *WebSocketHandler) GetConnectionCount(c *gin.Context) {
 	})
 }
 
-// GetRoomInfo returns information about a specific room
 func (wh *WebSocketHandler) GetRoomInfo(c *gin.Context) {
 	roomID := c.Param("room_id")
 
@@ -475,7 +438,6 @@ func (wh *WebSocketHandler) GetRoomInfo(c *gin.Context) {
 	})
 }
 
-// BroadcastMessage broadcasts a message to all connections or a specific room
 func (wh *WebSocketHandler) BroadcastMessage(c *gin.Context) {
 	var req struct {
 		Type   string                 `json:"type" binding:"required"`

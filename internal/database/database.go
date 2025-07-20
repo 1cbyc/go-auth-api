@@ -12,16 +12,13 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// Database represents the database connection
 type Database struct {
 	DB *gorm.DB
 }
 
-// NewDatabase creates a new database connection
 func NewDatabase(cfg *config.Config) (*Database, error) {
 	dsn := cfg.Database.GetDSN()
 
-	// Configure GORM logger
 	gormLogger := logger.Default.LogMode(logger.Info)
 	if cfg.Log.Level == "error" {
 		gormLogger = logger.Default.LogMode(logger.Error)
@@ -34,7 +31,6 @@ func NewDatabase(cfg *config.Config) (*Database, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Configure connection pool
 	sqlDB, err := db.DB()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get underlying sql.DB: %w", err)
@@ -44,7 +40,6 @@ func NewDatabase(cfg *config.Config) (*Database, error) {
 	sqlDB.SetMaxIdleConns(cfg.Database.MaxIdleConns)
 	sqlDB.SetConnMaxLifetime(cfg.Database.ConnMaxLifetime)
 
-	// Test the connection
 	if err := sqlDB.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
@@ -54,7 +49,6 @@ func NewDatabase(cfg *config.Config) (*Database, error) {
 	return &Database{DB: db}, nil
 }
 
-// AutoMigrate runs database migrations
 func (d *Database) AutoMigrate() error {
 	log.Println("Running database migrations...")
 
@@ -74,7 +68,6 @@ func (d *Database) AutoMigrate() error {
 	return nil
 }
 
-// Close closes the database connection
 func (d *Database) Close() error {
 	sqlDB, err := d.DB.DB()
 	if err != nil {
@@ -84,7 +77,6 @@ func (d *Database) Close() error {
 	return sqlDB.Close()
 }
 
-// HealthCheck checks if the database is healthy
 func (d *Database) HealthCheck() error {
 	sqlDB, err := d.DB.DB()
 	if err != nil {
@@ -94,11 +86,9 @@ func (d *Database) HealthCheck() error {
 	return sqlDB.Ping()
 }
 
-// SeedData seeds the database with initial data
 func (d *Database) SeedData() error {
 	log.Println("Seeding database with initial data...")
 
-	// Check if admin user already exists
 	var count int64
 	d.DB.Model(&models.User{}).Count(&count)
 	if count > 0 {
@@ -106,7 +96,6 @@ func (d *Database) SeedData() error {
 		return nil
 	}
 
-	// Create admin user
 	adminUser := &models.User{
 		Email:     "admin@example.com",
 		Password:  "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", // password
@@ -120,7 +109,6 @@ func (d *Database) SeedData() error {
 		return fmt.Errorf("failed to create admin user: %w", err)
 	}
 
-	// Create regular user
 	regularUser := &models.User{
 		Email:     "user@example.com",
 		Password:  "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", // password

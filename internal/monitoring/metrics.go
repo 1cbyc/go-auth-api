@@ -13,33 +13,26 @@ import (
 	"gorm.io/gorm"
 )
 
-// Metrics represents the monitoring metrics
 type Metrics struct {
-	// HTTP metrics
 	httpRequestsTotal   *prometheus.CounterVec
 	httpRequestDuration *prometheus.HistogramVec
 	httpRequestsInFlight *prometheus.GaugeVec
 	
-	// Database metrics
 	dbConnectionsActive *prometheus.GaugeVec
 	dbConnectionsIdle   *prometheus.GaugeVec
 	dbQueryDuration     *prometheus.HistogramVec
 	
-	// Cache metrics
 	cacheHits   *prometheus.CounterVec
 	cacheMisses *prometheus.CounterVec
 	
-	// Business metrics
 	userRegistrations *prometheus.CounterVec
 	userLogins        *prometheus.CounterVec
 	userLogouts       *prometheus.CounterVec
 	
-	// System metrics
 	goroutines *prometheus.GaugeVec
 	memoryUsage *prometheus.GaugeVec
 }
 
-// NewMetrics creates a new metrics instance
 func NewMetrics() *Metrics {
 	m := &Metrics{
 		httpRequestsTotal: prometheus.NewCounterVec(
@@ -137,7 +130,6 @@ func NewMetrics() *Metrics {
 		),
 	}
 	
-	// Register metrics
 	prometheus.MustRegister(
 		m.httpRequestsTotal,
 		m.httpRequestDuration,
@@ -157,19 +149,15 @@ func NewMetrics() *Metrics {
 	return m
 }
 
-// MetricsMiddleware provides metrics middleware for HTTP handlers
 func (m *Metrics) MetricsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		
-		// Increment in-flight requests
 		m.httpRequestsInFlight.WithLabelValues(c.Request.Method, c.Request.URL.Path).Inc()
 		defer m.httpRequestsInFlight.WithLabelValues(c.Request.Method, c.Request.URL.Path).Dec()
 		
-		// Process request
 		c.Next()
 		
-		// Record metrics
 		duration := time.Since(start).Seconds()
 		status := fmt.Sprintf("%d", c.Writer.Status())
 		
@@ -178,39 +166,31 @@ func (m *Metrics) MetricsMiddleware() gin.HandlerFunc {
 	}
 }
 
-// RecordUserRegistration records a user registration event
 func (m *Metrics) RecordUserRegistration(status string) {
 	m.userRegistrations.WithLabelValues(status).Inc()
 }
 
-// RecordUserLogin records a user login event
 func (m *Metrics) RecordUserLogin(status string) {
 	m.userLogins.WithLabelValues(status).Inc()
 }
 
-// RecordUserLogout records a user logout event
 func (m *Metrics) RecordUserLogout(status string) {
 	m.userLogouts.WithLabelValues(status).Inc()
 }
 
-// RecordCacheHit records a cache hit
 func (m *Metrics) RecordCacheHit(cache string) {
 	m.cacheHits.WithLabelValues(cache).Inc()
 }
 
-// RecordCacheMiss records a cache miss
 func (m *Metrics) RecordCacheMiss(cache string) {
 	m.cacheMisses.WithLabelValues(cache).Inc()
 }
 
-// RecordDBQuery records a database query
 func (m *Metrics) RecordDBQuery(database, operation string, duration time.Duration) {
 	m.dbQueryDuration.WithLabelValues(database, operation).Observe(duration.Seconds())
 }
 
-// UpdateSystemMetrics updates system-level metrics
 func (m *Metrics) UpdateSystemMetrics() {
-	// Update goroutine count
 	var stats runtime.MemStats
 	runtime.ReadMemStats(&stats)
 	
@@ -221,13 +201,11 @@ func (m *Metrics) UpdateSystemMetrics() {
 	m.memoryUsage.WithLabelValues("heap_sys").Set(float64(stats.HeapSys))
 }
 
-// HealthChecker represents a health check system
 type HealthChecker struct {
 	db    *gorm.DB
 	redis *redis.Client
 }
 
-// NewHealthChecker creates a new health checker
 func NewHealthChecker(db *gorm.DB, redis *redis.Client) *HealthChecker {
 	return &HealthChecker{
 		db:    db,
@@ -235,7 +213,6 @@ func NewHealthChecker(db *gorm.DB, redis *redis.Client) *HealthChecker {
 	}
 }
 
-// HealthStatus represents the health status of a component
 type HealthStatus struct {
 	Status    string                 `json:"status"`
 	Message   string                 `json:"message,omitempty"`
@@ -243,23 +220,18 @@ type HealthStatus struct {
 	Details   map[string]interface{} `json:"details,omitempty"`
 }
 
-// CheckHealth performs a comprehensive health check
 func (hc *HealthChecker) CheckHealth(ctx context.Context) map[string]HealthStatus {
 	status := make(map[string]HealthStatus)
 	
-	// Check database health
 	status["database"] = hc.checkDatabaseHealth(ctx)
 	
-	// Check Redis health
 	status["redis"] = hc.checkRedisHealth(ctx)
 	
-	// Check application health
 	status["application"] = hc.checkApplicationHealth()
 	
 	return status
 }
 
-// checkDatabaseHealth checks database connectivity
 func (hc *HealthChecker) checkDatabaseHealth(ctx context.Context) HealthStatus {
 	sqlDB, err := hc.db.DB()
 	if err != nil {
@@ -270,7 +242,6 @@ func (hc *HealthChecker) checkDatabaseHealth(ctx context.Context) HealthStatus {
 		}
 	}
 	
-	// Check connection
 	err = sqlDB.PingContext(ctx)
 	if err != nil {
 		return HealthStatus{
@@ -280,7 +251,6 @@ func (hc *HealthChecker) checkDatabaseHealth(ctx context.Context) HealthStatus {
 		}
 	}
 	
-	// Get connection stats
 	stats := sqlDB.Stats()
 	
 	return HealthStatus{
@@ -295,9 +265,7 @@ func (hc *HealthChecker) checkDatabaseHealth(ctx context.Context) HealthStatus {
 	}
 }
 
-// checkRedisHealth checks Redis connectivity
 func (hc *HealthChecker) checkRedisHealth(ctx context.Context) HealthStatus {
-	// Ping Redis
 	err := hc.redis.Ping(ctx).Err()
 	if err != nil {
 		return HealthStatus{
@@ -307,7 +275,6 @@ func (hc *HealthChecker) checkRedisHealth(ctx context.Context) HealthStatus {
 		}
 	}
 	
-	// Get Redis info
 	info, err := hc.redis.Info(ctx).Result()
 	if err != nil {
 		return HealthStatus{
@@ -327,7 +294,6 @@ func (hc *HealthChecker) checkRedisHealth(ctx context.Context) HealthStatus {
 	}
 }
 
-// checkApplicationHealth checks application health
 func (hc *HealthChecker) checkApplicationHealth() HealthStatus {
 	return HealthStatus{
 		Status:    "healthy",
@@ -340,16 +306,12 @@ func (hc *HealthChecker) checkApplicationHealth() HealthStatus {
 	}
 }
 
-// SetupMonitoring sets up monitoring endpoints
 func SetupMonitoring(router *gin.Engine, metrics *Metrics, healthChecker *HealthChecker) {
-	// Metrics endpoint
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	
-	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
 		status := healthChecker.CheckHealth(c.Request.Context())
 		
-		// Check if all services are healthy
 		allHealthy := true
 		for _, s := range status {
 			if s.Status != "healthy" {
@@ -371,11 +333,9 @@ func SetupMonitoring(router *gin.Engine, metrics *Metrics, healthChecker *Health
 		}
 	})
 	
-	// Readiness probe
 	router.GET("/ready", func(c *gin.Context) {
 		status := healthChecker.CheckHealth(c.Request.Context())
 		
-		// For readiness, we only check critical services
 		dbHealthy := status["database"].Status == "healthy"
 		redisHealthy := status["redis"].Status == "healthy"
 		
@@ -386,7 +346,6 @@ func SetupMonitoring(router *gin.Engine, metrics *Metrics, healthChecker *Health
 		}
 	})
 	
-	// Liveness probe
 	router.GET("/live", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "alive"})
 	})

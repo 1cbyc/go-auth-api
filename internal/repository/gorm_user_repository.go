@@ -9,22 +9,18 @@ import (
 	"gorm.io/gorm"
 )
 
-// GORMUserRepository implements UserRepository using GORM
 type GORMUserRepository struct {
 	db *gorm.DB
 }
 
-// NewGORMUserRepository creates a new GORM user repository
 func NewGORMUserRepository(db *gorm.DB) UserRepository {
 	return &GORMUserRepository{db: db}
 }
 
-// Create creates a new user
 func (r *GORMUserRepository) Create(user *models.User) error {
 	return r.db.Create(user).Error
 }
 
-// GetByID retrieves a user by ID
 func (r *GORMUserRepository) GetByID(id string) (*models.User, error) {
 	var user models.User
 	err := r.db.Where("id = ?", id).First(&user).Error
@@ -37,7 +33,6 @@ func (r *GORMUserRepository) GetByID(id string) (*models.User, error) {
 	return &user, nil
 }
 
-// GetByEmail retrieves a user by email
 func (r *GORMUserRepository) GetByEmail(email string) (*models.User, error) {
 	var user models.User
 	err := r.db.Where("email = ?", email).First(&user).Error
@@ -50,7 +45,6 @@ func (r *GORMUserRepository) GetByEmail(email string) (*models.User, error) {
 	return &user, nil
 }
 
-// GetByUsername retrieves a user by username
 func (r *GORMUserRepository) GetByUsername(username string) (*models.User, error) {
 	var user models.User
 	err := r.db.Where("username = ?", username).First(&user).Error
@@ -63,31 +57,26 @@ func (r *GORMUserRepository) GetByUsername(username string) (*models.User, error
 	return &user, nil
 }
 
-// Update updates a user
 func (r *GORMUserRepository) Update(user *models.User) error {
 	return r.db.Save(user).Error
 }
 
-// Delete deletes a user
 func (r *GORMUserRepository) Delete(id string) error {
 	return r.db.Where("id = ?", id).Delete(&models.User{}).Error
 }
 
-// List retrieves all users with pagination
 func (r *GORMUserRepository) List(offset, limit int) ([]*models.User, error) {
 	var users []*models.User
 	err := r.db.Offset(offset).Limit(limit).Find(&users).Error
 	return users, err
 }
 
-// Count returns the total number of users
 func (r *GORMUserRepository) Count() (int64, error) {
 	var count int64
 	err := r.db.Model(&models.User{}).Count(&count).Error
 	return count, err
 }
 
-// LogUserActivity logs a user activity
 func (r *GORMUserRepository) LogUserActivity(userID, action, details string) error {
 	log := &models.UserActivityLog{
 		UserID:    userID,
@@ -98,7 +87,6 @@ func (r *GORMUserRepository) LogUserActivity(userID, action, details string) err
 	return r.db.Create(log).Error
 }
 
-// ListUserActivityLogs retrieves user activity logs
 func (r *GORMUserRepository) ListUserActivityLogs(userID string, limit, offset int) ([]*models.UserActivityLog, error) {
 	var logs []*models.UserActivityLog
 	db := r.db
@@ -111,8 +99,6 @@ func (r *GORMUserRepository) ListUserActivityLogs(userID string, limit, offset i
 	return logs, nil
 }
 
-// GORMRefreshTokenRepository implements RefreshTokenRepository using GORM
-// (added for JWT refresh token persistence)
 type GORMRefreshTokenRepository struct {
 	db *gorm.DB
 }
@@ -145,8 +131,6 @@ func (r *GORMRefreshTokenRepository) DeleteByUserID(userID string) error {
 	return r.db.Where("user_id = ?", userID).Delete(&models.RefreshToken{}).Error
 }
 
-// GORMPasswordResetTokenRepository implements PasswordResetTokenRepository using GORM
-// (for password reset flow)
 type GORMPasswordResetTokenRepository struct {
 	db *gorm.DB
 }
@@ -179,8 +163,6 @@ func (r *GORMPasswordResetTokenRepository) DeleteByUserID(userID string) error {
 	return r.db.Where("user_id = ?", userID).Delete(&models.PasswordResetToken{}).Error
 }
 
-// GORMEmailVerificationTokenRepository implements EmailVerificationTokenRepository using GORM
-// (for email verification flow)
 type GORMEmailVerificationTokenRepository struct {
 	db *gorm.DB
 }

@@ -12,13 +12,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// AuthHandler handles authentication-related HTTP requests
 type AuthHandler struct {
 	authService *services.AuthService
 	logger      *logrus.Logger
 }
 
-// NewAuthHandler creates a new authentication handler
 func NewAuthHandler(authService *services.AuthService, logger *logrus.Logger) *AuthHandler {
 	return &AuthHandler{
 		authService: authService,
@@ -26,19 +24,7 @@ func NewAuthHandler(authService *services.AuthService, logger *logrus.Logger) *A
 	}
 }
 
-// Register handles user registration
-// @Summary Register a new user
-// @Description Register a new user account with username, email, and password
-// @Tags authentication
-// @Accept json
-// @Produce json
-// @Param user body models.CreateUserRequest true "User registration data"
-// @Success 201 {object} models.AuthResponse "User registered successfully"
-// @Failure 400 {string} string "Invalid request data"
-// @Failure 409 {string} string "Username or email already exists"
-// @Router /auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
-	// Parse request body
 	var req models.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.WithError(err).Error("Failed to decode registration request")
@@ -46,14 +32,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// Validate request
 	if err := validateCreateUserRequest(req); err != nil {
 		h.logger.WithError(err).Error("Invalid registration request")
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Register user
 	response, err := h.authService.Register(req)
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to register user")
@@ -61,23 +45,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// Return success response
 	c.JSON(http.StatusCreated, response)
 }
 
-// Login handles user login
-// @Summary Login user
-// @Description Authenticate user with email and password
-// @Tags authentication
-// @Accept json
-// @Produce json
-// @Param credentials body models.LoginRequest true "Login credentials"
-// @Success 200 {object} models.AuthResponse "Login successful"
-// @Failure 400 {string} string "Invalid request data"
-// @Failure 401 {string} string "Invalid credentials"
-// @Router /auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
-	// Parse request body
 	var req models.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.WithError(err).Error("Failed to decode login request")
@@ -85,14 +56,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// Validate request
 	if err := validateLoginRequest(req); err != nil {
 		h.logger.WithError(err).Error("Invalid login request")
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Authenticate user
 	response, err := h.authService.Login(req)
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to authenticate user")
@@ -100,23 +69,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// Return success response
 	c.JSON(http.StatusOK, response)
 }
 
-// RefreshToken handles token refresh
-// @Summary Refresh access token
-// @Description Generate new access token using refresh token
-// @Tags authentication
-// @Accept json
-// @Produce json
-// @Param refresh body models.RefreshTokenRequest true "Refresh token"
-// @Success 200 {object} models.AuthResponse "Token refreshed successfully"
-// @Failure 400 {string} string "Invalid request data"
-// @Failure 401 {string} string "Invalid or expired refresh token"
-// @Router /auth/refresh [post]
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
-	// Parse request body
 	var req models.RefreshTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.WithError(err).Error("Failed to decode refresh token request")
@@ -124,14 +80,12 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	// Validate request
 	if req.RefreshToken == "" {
 		h.logger.Error("Empty refresh token")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Refresh token is required"})
 		return
 	}
 
-	// Refresh token
 	response, err := h.authService.RefreshToken(req.RefreshToken)
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to refresh token")
@@ -139,18 +93,9 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	// Return success response
 	c.JSON(http.StatusOK, response)
 }
 
-// Logout handles user logout
-// @Summary Logout user
-// @Description Logout user and invalidate session
-// @Tags authentication
-// @Security BearerAuth
-// @Produce json
-// @Success 200 {object} map[string]string "Logout successful"
-// @Router /auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
 	userID, ok := c.Get("user_id")
 	if !ok {
@@ -165,17 +110,6 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out"})
 }
 
-// RequestPasswordReset handles password reset requests
-// @Summary Request password reset
-// @Description Request a password reset link (simulated email)
-// @Tags authentication
-// @Accept json
-// @Produce json
-// @Param request body models.PasswordResetRequest true "Password reset request"
-// @Success 200 {object} map[string]string "Password reset email sent"
-// @Failure 400 {string} string "Invalid request data"
-// @Failure 404 {string} string "User not found"
-// @Router /auth/request-password-reset [post]
 func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
 	var req models.PasswordResetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -200,16 +134,6 @@ func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Password reset email sent (simulated)"})
 }
 
-// ConfirmPasswordReset handles password reset confirmation
-// @Summary Confirm password reset
-// @Description Reset password using token
-// @Tags authentication
-// @Accept json
-// @Produce json
-// @Param request body models.PasswordResetConfirmRequest true "Password reset confirm request"
-// @Success 200 {object} map[string]string "Password reset successful"
-// @Failure 400 {string} string "Invalid request data or token"
-// @Router /auth/confirm-password-reset [post]
 func (h *AuthHandler) ConfirmPasswordReset(c *gin.Context) {
 	var req models.PasswordResetConfirmRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -234,16 +158,6 @@ func (h *AuthHandler) ConfirmPasswordReset(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Password reset successful"})
 }
 
-// VerifyEmail handles email verification
-// @Summary Verify email
-// @Description Verify user email using token
-// @Tags authentication
-// @Accept json
-// @Produce json
-// @Param request body models.EmailVerificationRequest true "Email verification request"
-// @Success 200 {object} map[string]string "Email verified successfully"
-// @Failure 400 {string} string "Invalid request data or token"
-// @Router /auth/verify-email [post]
 func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 	var req models.EmailVerificationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -264,7 +178,6 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Email verified successfully"})
 }
 
-// Helper functions for validation
 func validateCreateUserRequest(req models.CreateUserRequest) error {
 	if req.Username == "" {
 		return errors.New("username is required")
@@ -279,7 +192,6 @@ func validateCreateUserRequest(req models.CreateUserRequest) error {
 	if req.Email == "" {
 		return errors.New("email is required")
 	}
-	// Basic email validation
 	if !strings.Contains(req.Email, "@") {
 		return errors.New("invalid email format")
 	}
@@ -306,7 +218,6 @@ func validateLoginRequest(req models.LoginRequest) error {
 	if req.Email == "" {
 		return errors.New("email is required")
 	}
-	// Basic email validation
 	if !strings.Contains(req.Email, "@") {
 		return errors.New("invalid email format")
 	}

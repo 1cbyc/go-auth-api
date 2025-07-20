@@ -9,7 +9,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// JobStatus represents the status of a job
 type JobStatus string
 
 const (
@@ -20,7 +19,6 @@ const (
 	RetryStatus      JobStatus = "retry"
 )
 
-// Job represents a job in the queue
 type Job struct {
 	ID          string                 `json:"id"`
 	Type        string                 `json:"type"`
@@ -36,13 +34,11 @@ type Job struct {
 	Delay       time.Duration          `json:"delay,omitempty"`
 }
 
-// JobQueue represents a job queue
 type JobQueue struct {
 	client *redis.Client
 	queues map[string]*Queue
 }
 
-// NewJobQueue creates a new job queue
 func NewJobQueue(client *redis.Client) *JobQueue {
 	return &JobQueue{
 		client: client,
@@ -50,13 +46,11 @@ func NewJobQueue(client *redis.Client) *JobQueue {
 	}
 }
 
-// Queue represents a specific queue
 type Queue struct {
 	name   string
 	client *redis.Client
 }
 
-// NewQueue creates a new queue
 func (jq *JobQueue) NewQueue(name string) *Queue {
 	queue := &Queue{
 		name:   name,
@@ -66,9 +60,7 @@ func (jq *JobQueue) NewQueue(name string) *Queue {
 	return queue
 }
 
-// Enqueue adds a job to the queue
 func (q *Queue) Enqueue(ctx context.Context, job *Job) error {
-	// Set default values
 	if job.ID == "" {
 		job.ID = generateJobID()
 	}
@@ -82,19 +74,16 @@ func (q *Queue) Enqueue(ctx context.Context, job *Job) error {
 		job.Priority = 5 // Default priority
 	}
 	
-	// Marshal job
 	data, err := json.Marshal(job)
 	if err != nil {
 		return fmt.Errorf("failed to marshal job: %w", err)
 	}
 	
-	// Calculate score for priority queue
 	score := float64(job.CreatedAt.Unix())
 	if job.Delay > 0 {
 		score = float64(job.CreatedAt.Add(job.Delay).Unix())
 	}
 	
-	// Add to Redis sorted set
 	key := fmt.Sprintf("queue:%s", q.name)
 	err = q.client.ZAdd(ctx, key, redis.Z{
 		Score:  score,
@@ -108,11 +97,9 @@ func (q *Queue) Enqueue(ctx context.Context, job *Job) error {
 	return nil
 }
 
-// Dequeue retrieves and removes the next job from the queue
 func (q *Queue) Dequeue(ctx context.Context) (*Job, error) {
 	key := fmt.Sprintf("queue:%s", q.name)
 	
-	// Get job with lowest score (highest priority, earliest time)
 	result, err := q.client.ZRangeWithScores(ctx, key, 0, 0).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to dequeue job: %w", err)
@@ -122,7 +109,6 @@ func (q *Queue) Dequeue(ctx context.Context) (*Job, error) {
 		return nil, nil // No jobs available
 	}
 	
-	// Check if job is ready to be processed (delay has passed)
 	jobData := result[0].Member.(string)
 	score := result[0].Score
 	
@@ -130,20 +116,17 @@ func (q *Queue) Dequeue(ctx context.Context) (*Job, error) {
 		return nil, nil // Job is still delayed
 	}
 	
-	// Remove job from queue
 	err = q.client.ZRem(ctx, key, jobData).Err()
 	if err != nil {
 		return nil, fmt.Errorf("failed to remove job from queue: %w", err)
 	}
 	
-	// Unmarshal job
 	var job Job
 	err = json.Unmarshal([]byte(jobData), &job)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal job: %w", err)
 	}
 	
-	// Update job status
 	job.Status = ProcessingStatus
 	now := time.Now()
 	job.ProcessedAt = &now
@@ -151,17 +134,14 @@ func (q *Queue) Dequeue(ctx context.Context) (*Job, error) {
 	return &job, nil
 }
 
-// GetJob retrieves a job by ID
 func (q *Queue) GetJob(ctx context.Context, jobID string) (*Job, error) {
 	key := fmt.Sprintf("queue:%s", q.name)
 	
-	// Get all jobs
 	jobs, err := q.client.ZRange(ctx, key, 0, -1).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get jobs: %w", err)
 	}
 	
-	// Find job by ID
 	for _, jobData := range jobs {
 		var job Job
 		err := json.Unmarshal([]byte(jobData), &job)
@@ -177,29 +157,23 @@ func (q *Queue) GetJob(ctx context.Context, jobID string) (*Job, error) {
 	return nil, fmt.Errorf("job not found")
 }
 
-// UpdateJob updates a job in the queue
 func (q *Queue) UpdateJob(ctx context.Context, job *Job) error {
-	// Remove old job
 	err := q.RemoveJob(ctx, job.ID)
 	if err != nil {
 		return fmt.Errorf("failed to remove old job: %w", err)
 	}
 	
-	// Add updated job
 	return q.Enqueue(ctx, job)
 }
 
-// RemoveJob removes a job from the queue
 func (q *Queue) RemoveJob(ctx context.Context, jobID string) error {
 	key := fmt.Sprintf("queue:%s", q.name)
 	
-	// Get all jobs
 	jobs, err := q.client.ZRange(ctx, key, 0, -1).Result()
 	if err != nil {
 		return fmt.Errorf("failed to get jobs: %w", err)
 	}
 	
-	// Find and remove job by ID
 	for _, jobData := range jobs {
 		var job Job
 		err := json.Unmarshal([]byte(jobData), &job)
@@ -219,17 +193,14 @@ func (q *Queue) RemoveJob(ctx context.Context, jobID string) error {
 	return fmt.Errorf("job not found")
 }
 
-// GetQueueStats returns statistics about the queue
 func (q *Queue) GetQueueStats(ctx context.Context) (map[string]interface{}, error) {
 	key := fmt.Sprintf("queue:%s", q.name)
 	
-	// Get queue size
 	size, err := q.client.ZCard(ctx, key).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get queue size: %w", err)
 	}
 	
-	// Get jobs by status
 	jobs, err := q.client.ZRange(ctx, key, 0, -1).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get jobs: %w", err)
@@ -256,7 +227,6 @@ func (q *Queue) GetQueueStats(ctx context.Context) (map[string]interface{}, erro
 	}, nil
 }
 
-// JobProcessor represents a job processor
 type JobProcessor struct {
 	queue     *Queue
 	handlers  map[string]JobHandler
@@ -264,10 +234,8 @@ type JobProcessor struct {
 	stopChan  chan struct{}
 }
 
-// JobHandler represents a job handler function
 type JobHandler func(ctx context.Context, job *Job) error
 
-// NewJobProcessor creates a new job processor
 func NewJobProcessor(queue *Queue, workers int) *JobProcessor {
 	return &JobProcessor{
 		queue:    queue,
@@ -277,31 +245,26 @@ func NewJobProcessor(queue *Queue, workers int) *JobProcessor {
 	}
 }
 
-// RegisterHandler registers a job handler
 func (jp *JobProcessor) RegisterHandler(jobType string, handler JobHandler) {
 	jp.handlers[jobType] = handler
 }
 
-// Start starts the job processor
 func (jp *JobProcessor) Start(ctx context.Context) {
 	for i := 0; i < jp.workers; i++ {
 		go jp.worker(ctx, i)
 	}
 }
 
-// Stop stops the job processor
 func (jp *JobProcessor) Stop() {
 	close(jp.stopChan)
 }
 
-// worker processes jobs
 func (jp *JobProcessor) worker(ctx context.Context, workerID int) {
 	for {
 		select {
 		case <-jp.stopChan:
 			return
 		default:
-			// Dequeue job
 			job, err := jp.queue.Dequeue(ctx)
 			if err != nil {
 				time.Sleep(time.Second)
@@ -313,15 +276,12 @@ func (jp *JobProcessor) worker(ctx context.Context, workerID int) {
 				continue
 			}
 			
-			// Process job
 			jp.processJob(ctx, job)
 		}
 	}
 }
 
-// processJob processes a single job
 func (jp *JobProcessor) processJob(ctx context.Context, job *Job) {
-	// Get handler
 	handler, exists := jp.handlers[job.Type]
 	if !exists {
 		job.Status = FailedStatus
@@ -330,7 +290,6 @@ func (jp *JobProcessor) processJob(ctx context.Context, job *Job) {
 		return
 	}
 	
-	// Execute handler
 	err := handler(ctx, job)
 	if err != nil {
 		job.RetryCount++
@@ -342,7 +301,6 @@ func (jp *JobProcessor) processJob(ctx context.Context, job *Job) {
 			job.CompletedAt = &now
 		} else {
 			job.Status = RetryStatus
-			// Add delay for retry
 			job.Delay = time.Duration(job.RetryCount) * time.Minute
 		}
 	} else {
@@ -351,26 +309,21 @@ func (jp *JobProcessor) processJob(ctx context.Context, job *Job) {
 		job.CompletedAt = &now
 	}
 	
-	// Update job in queue
 	jp.queue.Enqueue(ctx, job)
 }
 
-// generateJobID generates a unique job ID
 func generateJobID() string {
 	return fmt.Sprintf("job_%d", time.Now().UnixNano())
 }
 
-// JobQueueHandler handles job queue HTTP requests
 type JobQueueHandler struct {
 	jobQueue *JobQueue
 }
 
-// NewJobQueueHandler creates a new job queue handler
 func NewJobQueueHandler(jobQueue *JobQueue) *JobQueueHandler {
 	return &JobQueueHandler{jobQueue: jobQueue}
 }
 
-// EnqueueJob handles job enqueue requests
 func (jqh *JobQueueHandler) EnqueueJob(c *gin.Context) {
 	queueName := c.Param("queue")
 	queue := jqh.jobQueue.NewQueue(queueName)
@@ -409,7 +362,6 @@ func (jqh *JobQueueHandler) EnqueueJob(c *gin.Context) {
 	})
 }
 
-// GetJobStatus gets the status of a job
 func (jqh *JobQueueHandler) GetJobStatus(c *gin.Context) {
 	queueName := c.Param("queue")
 	jobID := c.Param("job_id")
@@ -424,7 +376,6 @@ func (jqh *JobQueueHandler) GetJobStatus(c *gin.Context) {
 	c.JSON(200, job)
 }
 
-// GetQueueStats gets queue statistics
 func (jqh *JobQueueHandler) GetQueueStats(c *gin.Context) {
 	queueName := c.Param("queue")
 	queue := jqh.jobQueue.NewQueue(queueName)

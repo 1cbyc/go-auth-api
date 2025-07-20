@@ -47,7 +47,6 @@ func (s *Storage) UploadFile(ctx context.Context, file multipart.File, fileHeade
 		}
 		return fmt.Sprintf("%s/%s/%s", s.baseURL, s.bucket, dest), nil
 	}
-	// Local storage fallback
 	out, err := os.Create("." + dest)
 	if err != nil {
 		return "", err
